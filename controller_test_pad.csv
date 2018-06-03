@@ -1,7 +1,7 @@
 #Release 14.7 - par P.20131013 (lin64)
 #Copyright (c) 1995-2013 Xilinx, Inc.  All rights reserved.
 
-#Sun Jun  3 00:08:21 2018
+#Sun Jun  3 00:34:06 2018
 
 #
 ## NOTE: This file is designed to be imported into a spreadsheet program
@@ -46,7 +46,7 @@ B8,,IOBM,IO_L33P_0,UNUSED,,0,,,,,,,,,
 B9,,,VCCO_0,,,0,,,,,3.30,,,,
 B10,uart_tx_pin,IOB,IO_L35P_GCLK17_0,OUTPUT,LVTTL,0,12,SLOW,,,,LOCATED,NO,NONE,
 B11,,,GND,,,,,,,,,,,,
-B12,debug11,IOB,IO_L62P_0,OUTPUT,LVTTL,0,12,SLOW,,,,LOCATED,NO,NONE,
+B12,debug11,IOB,IO_L62P_0,OUTPUT,LVTTL,0,12,SLOW,,,,LOCATED,YES,NONE,
 B13,,,VCCO_0,,,0,,,,,3.30,,,,
 B14,,IOBM,IO_L65P_SCP3_0,UNUSED,,0,,,,,,,,,
 B15,,IOBM,IO_L29P_A23_M1A13_1,UNUSED,,1,,,,,,,,,

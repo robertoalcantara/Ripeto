@@ -192,6 +192,7 @@ always @(posedge clk_1M or negedge rst) begin
 					data_in <= 32'hAAAA;
 					rw <= 1;
 					enable <= 1;
+					addr <= addr+23'h1;
 					memory_test_ctl <= MEMORY_TEST_WAIT;
 				end
 			end
@@ -208,9 +209,15 @@ always @(posedge clk_1M or negedge rst) begin
 				rw <= 0;
 				enable <= 1;
 				memory_test_ctl <= MEMORY_TEST_CHECK;
+				if (tx_ready) begin
+					tx_byte <= addr[15:8];
+					tx_en <= 1;
+				end
 			end
 				
 			MEMORY_TEST_CHECK: begin
+				tx_en <= 0;
+
 				if (out_valid) begin
 				
 					if ( data_out != 32'hAAAA ) begin
@@ -219,9 +226,9 @@ always @(posedge clk_1M or negedge rst) begin
 							memory_test_ctl <= MEMORY_TEST_FAULT;
 					end 
 					else begin 
+					
 						enable <= 0;
-						addr <= addr+23'h1;
-						if (addr == 23'd8388608-1) begin
+						if (addr == 23'd8388606-1) begin
 						//if (addr == 23'd10) begin
 							memory_test_ctl <= MEMORY_TEST_FINISHED;
 						end
@@ -246,16 +253,10 @@ always @(posedge clk_1M or negedge rst) begin
 	
 	
 	    cnt_seg <= cnt_seg + 32'd1;
-		if (cnt_seg == 32'd50) begin //d500000
+		if (cnt_seg == 32'd500000) begin
 			cnt_seg <= 0;
 			led1_debug <= ~led1_debug; //led pulse
-			if (tx_ready) begin
-				cnt_tmp <= cnt_tmp + 8'd1;
-				tx_byte <= cnt_tmp;
-				tx_en <= 1;
-			end
-		end else begin
-			tx_en <= 0;
+		
 		end
 	
 	end
@@ -275,8 +276,8 @@ end*/
 	
 	assign led1 = led1_debug;
 	assign led2 = led2_debug;	
-	assign debug7 = tx_ready; //out_valid;//debug7q;
-	assign debug11 = tx_en; //debug11q;
+	assign debug7 = out_valid;//debug7q;
+	assign debug11 = debug11q;
 	
 
 	

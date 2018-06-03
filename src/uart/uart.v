@@ -63,21 +63,25 @@ module uart(
 	  
 	  
 reg[7:0] main_tx_state;
+reg[7:0] saved_byte;
 always @(posedge clk or posedge rst) begin
 	if ( rst ) begin	
 		tx_ready_r <= 1;
 		main_tx_state <= 0;
+		saved_byte <= 0;
 	end
 	else begin
 		case (main_tx_state) 
 			0: begin
-				if ( tx_en ) 
+				if ( tx_en ) begin
 					main_tx_state <= 1;
+					saved_byte <= tx_byte;
+				end
 			end
 			1: begin
 				tx_ready_r <= 0;
 				if ( f_full == 0 ) begin 
-					f_data_in <= tx_byte;
+					f_data_in <= saved_byte;
 					f_we <= 1; //salvar na fifo
 					main_tx_state <= 2;
 				end else begin
