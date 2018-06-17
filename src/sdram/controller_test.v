@@ -37,17 +37,18 @@ module controller_test(
 	output led2,
 	output debug7,
 	output debug11,
-	output uart_tx_pin
+	output uart_tx_pin,
+	input spi0_miso,
+	output spi0_clkout,
+	output spi0_cs    
 );
 	//parameter ONE_SEC_DLY = 64'd50000000;
 	//parameter HALF_SEC_DLY = 64'd12000000; //25
 	
 	//clock aux
-	reg [7:0] clk_1M_cnt;
-	reg clk_1M;
-	reg [7:0] clk_500k_cnt;
-	reg clk_500k;
-	
+	reg [7:0] clk_25M_cnt;
+	reg clk_25M;
+
     wire clk100;		
 	clk_wiz_v3_6 clkPLL (
         .CLK_IN1(clk), // IN
@@ -89,44 +90,59 @@ module controller_test(
     .tx_pin(uart_tx_pin)
     );
 	
-	reg led1_debug, led2_debug;
+	//wire spi0_miso;   //pin
+	//wire spi0_mosi; //not required by MCP3201
+	//wire spi0_clkout; //pin
+	//wire spi0_cs;     //pin  
 
-	(* IOB = "TRUE" *)
-	reg debug7q;
-	(* IOB = "TRUE" *)
-	reg debug11q;
-
-	reg [1:0]tx_state;	
-	reg tx_go;
+	wire [7:0] spi0_data_out;
+	reg spi0_start;
+	wire spi0_busy;
+	wire spi0_new_data;
+	reg spi0_cs_f;
+	assign spi0_cs = spi0_cs_f; 
 	
-	reg [7:0] state_ctl;
-	
+	spi #(.CLK_DIV(7)) SPI0 ( //spi clk (7) ~ 781kHz
+		.clk(clk100),
+		.rst(rst_p),
+		.miso(spi0_miso),
+		.mosi(),
+		.sck(spi0_clkout),
+		.start(spi0_start),
+		.data_in(),
+		.data_out(spi0_data_out),
+		.busy(spi0_busy),
+		.new_data(spi0_new_data)
+	);
 
-	always @(posedge clk100) begin
+	
+//debug
+reg led1_debug, led2_debug;
+(* IOB = "TRUE" *)
+reg debug7q;
+(* IOB = "TRUE" *)
+reg debug11q;
+// --
+
+
+reg [7:0] state_ctl;
+	
+always @(posedge clk100) begin
 
 	if ( !rst ) begin
-		clk_1M_cnt <= 8'd0;
-		clk_1M <= 0;
-		clk_500k_cnt <= 8'd0;
-		clk_500k <= 0;
+		clk_25M_cnt <= 8'd0;
+		clk_25M <= 0;
+
 	end
 	else begin
-		if  (clk_1M_cnt == 8'd50)  begin 
-			clk_1M <= ~clk_1M;
-			clk_1M_cnt <= 8'd0;
+		if  (clk_25M_cnt == 8'd2)  begin 
+			clk_25M <= ~clk_25M;
+			clk_25M_cnt <= 8'd0;
 		end 
 		else begin
-			clk_1M_cnt <= clk_1M_cnt + 8'd1;
+			clk_25M_cnt <= clk_25M_cnt + 8'd1;
 		end
-		
-		if (clk_500k_cnt == 8'd100) begin
-			clk_500k <= ~clk_500k;
-			clk_500k_cnt <= 8'd0;
-		end
-		else begin
-			clk_500k_cnt <= clk_500k_cnt + 8'd1;
-		end
-		
+	
 	end
 end
 	
@@ -134,6 +150,7 @@ end
 reg[31:0] cnt_seg; 
 parameter CTL_START = 0;
 parameter WAITING_MEMORY_TEST = 1;
+parameter WAITING_SPI_TEST = 2;
 
 
 reg [7:0] memory_test_ctl;
@@ -145,10 +162,30 @@ parameter MEMORY_TEST_CHECK		= 4;
 parameter MEMORY_TEST_FINISHED  = 5;
 parameter MEMORY_TEST_FAULT     = 6;
 
+reg [7:0] spi_test_ctl;
+parameter SPI_TEST_IDLE 		= 0;
+parameter SPI_TEST_START		= 1;
+parameter SPI_TEST_RUNNING		= 2;
+parameter SPI_TEST_RUNNING2		= 3;
+parameter SPI_TEST_PRINT		= 4;
+parameter SPI_TEST_PRINT2		= 5;
+parameter SPI_TEST_PRINT3		= 6;
+parameter SPI_TEST_PRINT4		= 7;
+parameter SPI_TEST_PRINT5		= 8;
+parameter SPI_TEST_PRINT6		= 9;
+parameter SPI_TEST_FAULT 		= 19;
+parameter SPI_TEST_FINISHED		= 20;
+
+
 reg[31:0] data_tmp;
 reg[7:0] cnt_tmp;
-	
-always @(posedge clk_1M or negedge rst) begin
+
+reg [7:0] amost_output1;
+reg [7:0] amost_output2;
+wire [15:0] amost_output;
+assign amost_output[15:0] = { (amost_output1&8'b00011111), amost_output2[7:1] };   
+
+always @(posedge clk_25M or negedge rst) begin
 
 	if ( !rst ) begin
 		state_ctl <= 8'd0;
@@ -157,12 +194,19 @@ always @(posedge clk_1M or negedge rst) begin
 		led1_debug <= 1;
 		
 		memory_test_ctl <= MEMORY_TEST_IDLE;
+		spi_test_ctl <= SPI_TEST_IDLE;
+		state_ctl <= CTL_START;
+		
 		addr <= 23'd0;
 		data_in <= 0;
 		rw <= 0;
 		led2_debug <= 1; //apaga
 		debug11q <= 0;
 		data_tmp <= 0;
+		amost_output1 <= 0;
+		amost_output2 <= 0;
+
+		spi0_cs_f<= 1; //active low
 		
 		cnt_tmp <= 0;
 	end 
@@ -170,26 +214,104 @@ always @(posedge clk_1M or negedge rst) begin
 	
 		case (state_ctl) 
 			CTL_START: begin
-				state_ctl <= WAITING_MEMORY_TEST;
-				memory_test_ctl <= MEMORY_TEST_START;
+				state_ctl <= WAITING_SPI_TEST;
+				//state_ctl <= WAITING_MEMORY_TEST;
+				//memory_test_ctl <= MEMORY_TEST_START;
+				spi_test_ctl <= SPI_TEST_IDLE;
 			end
 			WAITING_MEMORY_TEST: begin
-				//if (memory_test_ctl == MEMORY_TEST_FINISHED) state_ctl <= 3;
+				if (memory_test_ctl == MEMORY_TEST_FINISHED) state_ctl <= WAITING_SPI_TEST;
+			end
+			WAITING_SPI_TEST: begin
+				if (spi_test_ctl == SPI_TEST_FINISHED) state_ctl <= state_ctl+1;
 			end
 			
 			default: begin
 			end
 		
 		endcase
-		
-		
+
+
+		case (spi_test_ctl)
+			SPI_TEST_IDLE: begin
+				spi0_start <= 1;
+				spi0_cs_f <= 1; //active low
+				spi_test_ctl <= SPI_TEST_START;
+			end
+			SPI_TEST_START: begin
+				spi0_cs_f <= 0; //active low
+				tx_en <= 0;
+				if (! spi0_busy) begin
+					spi_test_ctl <= SPI_TEST_RUNNING;
+				end
+			end
+			SPI_TEST_RUNNING: begin
+				if (spi0_new_data == 1)  begin
+					amost_output1 <= spi0_data_out;
+					led2_debug <= 0; //acende
+					spi_test_ctl <= SPI_TEST_RUNNING2;
+				end
+			end
+			SPI_TEST_RUNNING2: begin
+				if (spi0_new_data == 1)  begin
+					amost_output2 <= spi0_data_out;
+					spi_test_ctl <= SPI_TEST_PRINT;
+				end			
+			end
+			SPI_TEST_PRINT: begin
+				if (tx_ready) begin
+					tx_byte <= 8'hAA; //TEST flag
+					tx_en <= 1;
+					spi_test_ctl <= SPI_TEST_PRINT2;
+				end
+			end
+			SPI_TEST_PRINT2: begin
+				tx_en <= 0;
+				spi_test_ctl <= SPI_TEST_PRINT3;
+			end
+			SPI_TEST_PRINT3: begin
+				if (tx_ready) begin
+					tx_byte <= amost_output1;// & 8'b00011111;
+					tx_en <= 1;
+					spi_test_ctl <= SPI_TEST_PRINT4;
+				end
+			end
+			SPI_TEST_PRINT4: begin
+				tx_en <= 0;
+				spi_test_ctl <= SPI_TEST_PRINT5;
+			end
+			
+			SPI_TEST_PRINT5: begin
+				if (tx_ready) begin
+					tx_byte <= amost_output2;//[7:1];
+					tx_en <= 1;
+					spi_test_ctl <= SPI_TEST_PRINT6;
+				end
+			end
+			SPI_TEST_PRINT6: begin
+				tx_en <= 0;
+				spi_test_ctl <= SPI_TEST_IDLE;
+			end			
+			
+			SPI_TEST_FAULT:begin
+				//do nothing
+			end
+			
+			SPI_TEST_FINISHED: begin
+			end
+			
+			default: begin
+			end
+		endcase //spi_test
+
+
 		case (memory_test_ctl) 
 			MEMORY_TEST_IDLE: begin
 			end
 			
 			MEMORY_TEST_START: begin
 				if ( ready ) begin
-					data_in <= 32'hAAAA;
+					data_in <= data_tmp;
 					rw <= 1;
 					enable <= 1;
 					addr <= addr+23'h1;
@@ -220,7 +342,7 @@ always @(posedge clk_1M or negedge rst) begin
 
 				if (out_valid) begin
 				
-					if ( data_out != 32'hAAAA ) begin
+					if ( data_out != data_tmp ) begin
 							led2_debug <= 0; //acende
 							//fica parado, erro
 							memory_test_ctl <= MEMORY_TEST_FAULT;
@@ -228,8 +350,9 @@ always @(posedge clk_1M or negedge rst) begin
 					else begin 
 					
 						enable <= 0;
+						data_tmp <= data_tmp + 7'd1;
+
 						if (addr == 23'd8388606-1) begin
-						//if (addr == 23'd10) begin
 							memory_test_ctl <= MEMORY_TEST_FINISHED;
 						end
 						else begin
@@ -250,6 +373,12 @@ always @(posedge clk_1M or negedge rst) begin
 			end
 			
 		endcase		
+	
+	
+	
+	
+	
+	
 	
 	
 	    cnt_seg <= cnt_seg + 32'd1;
