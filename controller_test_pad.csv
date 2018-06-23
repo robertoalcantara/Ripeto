@@ -1,7 +1,7 @@
 #Release 14.7 - par P.20131013 (lin64)
 #Copyright (c) 1995-2013 Xilinx, Inc.  All rights reserved.
 
-#Sun Jun 17 17:36:34 2018
+#Sat Jun 23 14:17:41 2018
 
 #
 ## NOTE: This file is designed to be imported into a spreadsheet program
@@ -56,7 +56,7 @@ C2,sdram_dq<5>,IOB,IO_L48N_M3BA1_3,TRISTATE,LVTTL,3,12,FAST,,,,LOCATED,NO,NONE,
 C3,sdram_dq<4>,IOB,IO_L48P_M3BA0_3,TRISTATE,LVTTL,3,12,FAST,,,,LOCATED,NO,NONE,
 C4,,IOBM,IO_L1P_HSWAPEN_0,UNUSED,,0,,,,,,,,,
 C5,,IOBS,IO_L3N_0,UNUSED,,0,,,,,,,,,
-C6,spi0_miso,IOB,IO_L7N_0,INPUT,LVTTL,0,,,,NONE,,LOCATED,NO,NONE,
+C6,spi0_miso,IOB,IO_L7N_0,INPUT,LVTTL,0,,,PULLDOWN,NONE,,LOCATED,NO,NONE,
 C7,,IOBM,IO_L6P_0,UNUSED,,0,,,,,,,,,
 C8,,IOBS,IO_L38N_VREF_0,UNUSED,,0,,,,,,,,,
 C9,,IOBM,IO_L34P_GCLK19_0,UNUSED,,0,,,,,,,,,
@@ -72,7 +72,7 @@ D2,,,VCCO_3,,,3,,,,,3.30,,,,
 D3,sdram_dq<6>,IOB,IO_L49P_M3A7_3,TRISTATE,LVTTL,3,12,FAST,,,,LOCATED,NO,NONE,
 D4,,,GND,,,,,,,,,,,,
 D5,,IOBM,IO_L3P_0,UNUSED,,0,,,,,,,,,
-D6,spi0_cs,IOB,IO_L7P_0,OUTPUT,LVTTL,0,12,SLOW,,,,LOCATED,NO,NONE,
+D6,spi0_cs,IOB,IO_L7P_0,OUTPUT,LVTTL,0,12,SLOW,,,,LOCATED,YES,NONE,
 D7,,,VCCO_0,,,0,,,,,3.30,,,,
 D8,,IOBM,IO_L38P_0,UNUSED,,0,,,,,,,,,
 D9,,IOBS,IO_L40N_0,UNUSED,,0,,,,,,,,,

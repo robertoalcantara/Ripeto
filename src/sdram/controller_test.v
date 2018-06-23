@@ -90,32 +90,24 @@ module controller_test(
     .tx_pin(uart_tx_pin)
     );
 	
-	//wire spi0_miso;   //pin
-	//wire spi0_mosi; //not required by MCP3201
-	//wire spi0_clkout; //pin
-	//wire spi0_cs;     //pin  
-
-	wire [7:0] spi0_data_out;
+	wire [11:0] spi0_data_out;
 	reg spi0_start;
 	wire spi0_busy;
 	wire spi0_new_data;
-	reg spi0_cs_f;
-	assign spi0_cs = spi0_cs_f; 
 	
-	spi #(.CLK_DIV(7)) SPI0 ( //spi clk (7) ~ 781kHz
+	mcp3201_spi #(.CLK_DIV(60)) SPI0 ( //7 = ~781kHz
 		.clk(clk100),
-		.rst(rst_p),
-		.miso(spi0_miso),
-		.mosi(),
-		.sck(spi0_clkout),
+		.rst(rsp_p),
+		.data_in_pin(spi0_miso),
+		.clk_pin(spi0_clkout),
 		.start(spi0_start),
-		.data_in(),
 		.data_out(spi0_data_out),
 		.busy(spi0_busy),
-		.new_data(spi0_new_data)
+		.new_data(spi0_new_data),
+		.cs_pin_n(spi0_cs)
 	);
-
 	
+
 //debug
 reg led1_debug, led2_debug;
 (* IOB = "TRUE" *)
@@ -178,12 +170,11 @@ parameter SPI_TEST_FINISHED		= 20;
 
 
 reg[31:0] data_tmp;
-reg[7:0] cnt_tmp;
+reg[20:0] cnt_tmp;
 
-reg [7:0] amost_output1;
-reg [7:0] amost_output2;
-wire [15:0] amost_output;
-assign amost_output[15:0] = { (amost_output1&8'b00011111), amost_output2[7:1] };   
+reg [11:0] amost_output_r;
+//wire [11:0] amost_output;
+//assign amost_output[15:0] = { (amost_output1&8'b00011111), amost_output2[7:1] };   
 
 always @(posedge clk_25M or negedge rst) begin
 
@@ -203,10 +194,7 @@ always @(posedge clk_25M or negedge rst) begin
 		led2_debug <= 1; //apaga
 		debug11q <= 0;
 		data_tmp <= 0;
-		amost_output1 <= 0;
-		amost_output2 <= 0;
-
-		spi0_cs_f<= 1; //active low
+		amost_output_r <= 0;
 		
 		cnt_tmp <= 0;
 	end 
@@ -218,6 +206,7 @@ always @(posedge clk_25M or negedge rst) begin
 				//state_ctl <= WAITING_MEMORY_TEST;
 				//memory_test_ctl <= MEMORY_TEST_START;
 				spi_test_ctl <= SPI_TEST_IDLE;
+
 			end
 			WAITING_MEMORY_TEST: begin
 				if (memory_test_ctl == MEMORY_TEST_FINISHED) state_ctl <= WAITING_SPI_TEST;
@@ -234,12 +223,17 @@ always @(posedge clk_25M or negedge rst) begin
 
 		case (spi_test_ctl)
 			SPI_TEST_IDLE: begin
-				spi0_start <= 1;
-				spi0_cs_f <= 1; //active low
-				spi_test_ctl <= SPI_TEST_START;
+			
+				cnt_tmp <= cnt_tmp +1;
+				if (cnt_tmp == 650000) begin
+					spi0_start <= 1;
+					spi_test_ctl <= SPI_TEST_START;
+					cnt_tmp <= 0;
+				end
+			
+				
 			end
 			SPI_TEST_START: begin
-				spi0_cs_f <= 0; //active low
 				tx_en <= 0;
 				if (! spi0_busy) begin
 					spi_test_ctl <= SPI_TEST_RUNNING;
@@ -247,18 +241,17 @@ always @(posedge clk_25M or negedge rst) begin
 			end
 			SPI_TEST_RUNNING: begin
 				if (spi0_new_data == 1)  begin
-					amost_output1 <= spi0_data_out;
-					led2_debug <= 0; //acende
-					spi_test_ctl <= SPI_TEST_RUNNING2;
+					amost_output_r <= spi0_data_out;
+					spi_test_ctl <= SPI_TEST_PRINT;
+					spi0_start <= 0;
 				end
 			end
-			SPI_TEST_RUNNING2: begin
-				if (spi0_new_data == 1)  begin
-					amost_output2 <= spi0_data_out;
-					spi_test_ctl <= SPI_TEST_PRINT;
-				end			
-			end
 			SPI_TEST_PRINT: begin
+				if (amost_output_r[9] == 1 )
+					led2_debug <= 0; //acende
+				else
+					led2_debug <= 1; //apaga
+					
 				if (tx_ready) begin
 					tx_byte <= 8'hAA; //TEST flag
 					tx_en <= 1;
@@ -271,7 +264,7 @@ always @(posedge clk_25M or negedge rst) begin
 			end
 			SPI_TEST_PRINT3: begin
 				if (tx_ready) begin
-					tx_byte <= amost_output1;// & 8'b00011111;
+					tx_byte <= { 4'b0000, amost_output_r[11:8] };
 					tx_en <= 1;
 					spi_test_ctl <= SPI_TEST_PRINT4;
 				end
@@ -283,7 +276,7 @@ always @(posedge clk_25M or negedge rst) begin
 			
 			SPI_TEST_PRINT5: begin
 				if (tx_ready) begin
-					tx_byte <= amost_output2;//[7:1];
+					tx_byte <= amost_output_r[7:0];
 					tx_en <= 1;
 					spi_test_ctl <= SPI_TEST_PRINT6;
 				end
