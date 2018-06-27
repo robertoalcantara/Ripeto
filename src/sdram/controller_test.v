@@ -38,9 +38,15 @@ module controller_test(
 	output debug7,
 	output debug11,
 	output uart_tx_pin,
-	input spi0_miso,
+	
+	input spi0_miso, //U3 current
 	output spi0_clkout,
-	output spi0_cs    
+	output spi0_cs,
+
+	input spi1_miso,  //U1 voltage
+	output spi1_clkout,
+	output spi1_cs	
+	
 );
 	//parameter ONE_SEC_DLY = 64'd50000000;
 	//parameter HALF_SEC_DLY = 64'd12000000; //25
@@ -107,6 +113,25 @@ module controller_test(
 		.cs_pin_n(spi0_cs)
 	);
 	
+
+	wire [11:0] spi1_data_out;
+	reg spi1_start;
+	wire spi1_busy;
+	wire spi1_new_data;
+	
+	mcp3201_spi #(.CLK_DIV(60)) SPI1 ( //7 = ~781kHz
+		.clk(clk100),
+		.rst(rsp_p),
+		.data_in_pin(spi1_miso),
+		.clk_pin(spi1_clkout),
+		.start(spi1_start),
+		.data_out(spi1_data_out),
+		.busy(spi1_busy),
+		.new_data(spi1_new_data),
+		.cs_pin_n(spi1_cs)
+	);
+
+
 
 //debug
 reg led1_debug, led2_debug;
@@ -226,7 +251,7 @@ always @(posedge clk_25M or negedge rst) begin
 			
 				cnt_tmp <= cnt_tmp +1;
 				if (cnt_tmp == 650000) begin
-					spi0_start <= 1;
+					spi1_start <= 1;
 					spi_test_ctl <= SPI_TEST_START;
 					cnt_tmp <= 0;
 				end
@@ -235,15 +260,15 @@ always @(posedge clk_25M or negedge rst) begin
 			end
 			SPI_TEST_START: begin
 				tx_en <= 0;
-				if (! spi0_busy) begin
+				if (! spi1_busy) begin
 					spi_test_ctl <= SPI_TEST_RUNNING;
 				end
 			end
 			SPI_TEST_RUNNING: begin
-				if (spi0_new_data == 1)  begin
-					amost_output_r <= spi0_data_out;
+				if (spi1_new_data == 1)  begin
+					amost_output_r <= spi1_data_out;
 					spi_test_ctl <= SPI_TEST_PRINT;
-					spi0_start <= 0;
+					spi1_start <= 0;
 				end
 			end
 			SPI_TEST_PRINT: begin
