@@ -72,7 +72,7 @@ module controller_test(
 	reg enable;
 	reg [31:0] data_read;
 
-	SDRAM_Controller_v SDRAM (
+	/*SDRAM_Controller_v SDRAM (
 	   .clk(clk100),   .reset(rst_p),
 	   // command and write port
 	   .cmd_ready(ready), .cmd_enable(enable), .cmd_wr(rw), .cmd_byte_enable(4'b1111), .cmd_address(addr), .cmd_data_in(data_in),
@@ -81,7 +81,7 @@ module controller_test(
 	   // SDRAM signals
 	   .SDRAM_CLK(sdram_clk),  .SDRAM_CKE(sdram_cle),  .SDRAM_CS(sdram_cs),  .SDRAM_RAS(sdram_ras),  .SDRAM_CAS(sdram_cas),
 	   .SDRAM_WE(sdram_we), .SDRAM_DQM(sdram_dqm), .SDRAM_ADDR(sdram_a), .SDRAM_BA(sdram_ba), .SDRAM_DATA(sdram_dq)
-	);
+	);*/
 
 	reg [7:0] tx_byte;  
 	reg tx_en;
@@ -96,6 +96,28 @@ module controller_test(
     .tx_pin(uart_tx_pin)
     );
 	
+	wire [21:0] sampler_data_out;
+	reg sampler_start;
+	wire sampler_busy;
+	wire sampler_new_data;
+	
+	/*sampler #(.CLK_DIV(60)) SAMPLER0 (
+		.clk(clk100),
+		.rst(rst_p),
+		.start(sampler_start),
+		.busy(sampler_busy),
+		.new_data(sampler_new_data),
+		.data_out(sampler_data_out),
+		.voltage0_miso_pin(spi1_miso),
+		.voltage0_clkout_pin(spi1_clkout),
+		.voltage0_cs_pin(spi1_cs),
+		.current0_miso_pin(spi0_miso),
+		.current0_clkout_pin(spi0_clkout),
+		.current0_cs_pin(spi0_cs)		
+	);*/
+	
+	
+	/*
 	wire [11:0] spi0_data_out;
 	reg spi0_start;
 	wire spi0_busy;
@@ -129,18 +151,14 @@ module controller_test(
 		.busy(spi1_busy),
 		.new_data(spi1_new_data),
 		.cs_pin_n(spi1_cs)
-	);
-
+	);*/
 
 
 //debug
+(* IOB = "TRUE" *)
 reg led1_debug, led2_debug;
-(* IOB = "TRUE" *)
 reg debug7q;
-(* IOB = "TRUE" *)
 reg debug11q;
-// --
-
 
 reg [7:0] state_ctl;
 	
@@ -149,9 +167,11 @@ always @(posedge clk100) begin
 	if ( !rst ) begin
 		clk_25M_cnt <= 8'd0;
 		clk_25M <= 0;
+		led2_debug <= 1;
 
 	end
 	else begin
+		led2_debug <= 0;
 		if  (clk_25M_cnt == 8'd2)  begin 
 			clk_25M <= ~clk_25M;
 			clk_25M_cnt <= 8'd0;
@@ -216,7 +236,7 @@ always @(posedge clk_25M or negedge rst) begin
 		addr <= 23'd0;
 		data_in <= 0;
 		rw <= 0;
-		led2_debug <= 1; //apaga
+		//led2_debug <= 1; //apaga
 		debug11q <= 0;
 		data_tmp <= 0;
 		amost_output_r <= 0;
@@ -224,7 +244,7 @@ always @(posedge clk_25M or negedge rst) begin
 		cnt_tmp <= 0;
 	end 
 	else begin
-	
+	/*
 		case (state_ctl) 
 			CTL_START: begin
 				state_ctl <= WAITING_SPI_TEST;
@@ -251,7 +271,7 @@ always @(posedge clk_25M or negedge rst) begin
 			
 				cnt_tmp <= cnt_tmp +1;
 				if (cnt_tmp == 650000) begin
-					spi1_start <= 1;
+					sampler_start <= 1;
 					spi_test_ctl <= SPI_TEST_START;
 					cnt_tmp <= 0;
 				end
@@ -260,15 +280,15 @@ always @(posedge clk_25M or negedge rst) begin
 			end
 			SPI_TEST_START: begin
 				tx_en <= 0;
-				if (! spi1_busy) begin
+				if (! sampler_busy) begin
 					spi_test_ctl <= SPI_TEST_RUNNING;
 				end
 			end
 			SPI_TEST_RUNNING: begin
-				if (spi1_new_data == 1)  begin
-					amost_output_r <= spi1_data_out;
+				if (sampler_new_data == 1)  begin
+					amost_output_r <= sampler_data_out[11:0];
 					spi_test_ctl <= SPI_TEST_PRINT;
-					spi1_start <= 0;
+					sampler_start <= 0;
 				end
 			end
 			SPI_TEST_PRINT: begin
@@ -393,12 +413,8 @@ always @(posedge clk_25M or negedge rst) begin
 		endcase		
 	
 	
-	
-	
-	
-	
-	
-	
+	*/
+
 	    cnt_seg <= cnt_seg + 32'd1;
 		if (cnt_seg == 32'd500000) begin
 			cnt_seg <= 0;

@@ -42,7 +42,6 @@ reg [11:0] data_out_r;
 
 assign cs_pin_n = cs_r;
 assign busy = (main_state != 0);
-(* IOB = "TRUE" *)
 reg clk_enable;
 
 assign clk_pin = clk_slow & clk_enable;
