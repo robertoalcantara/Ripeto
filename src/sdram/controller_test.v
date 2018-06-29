@@ -72,7 +72,7 @@ module controller_test(
 	reg enable;
 	reg [31:0] data_read;
 
-	/*SDRAM_Controller_v SDRAM (
+	SDRAM_Controller_v SDRAM (
 	   .clk(clk100),   .reset(rst_p),
 	   // command and write port
 	   .cmd_ready(ready), .cmd_enable(enable), .cmd_wr(rw), .cmd_byte_enable(4'b1111), .cmd_address(addr), .cmd_data_in(data_in),
@@ -81,19 +81,19 @@ module controller_test(
 	   // SDRAM signals
 	   .SDRAM_CLK(sdram_clk),  .SDRAM_CKE(sdram_cle),  .SDRAM_CS(sdram_cs),  .SDRAM_RAS(sdram_ras),  .SDRAM_CAS(sdram_cas),
 	   .SDRAM_WE(sdram_we), .SDRAM_DQM(sdram_dqm), .SDRAM_ADDR(sdram_a), .SDRAM_BA(sdram_ba), .SDRAM_DATA(sdram_dq)
-	);*/
+	);
 
 	reg [7:0] tx_byte;  
 	reg tx_en;
 	wire tx_ready;
 	
 	uart UART0(
-    .clk(clk100),
-    .rst(rst_p),
-    .tx_byte(tx_byte),
-    .tx_en(tx_en),
-    .tx_ready(tx_ready),
-    .tx_pin(uart_tx_pin)
+		.clk(clk100),
+		.rst(rst_p),
+		.tx_byte(tx_byte),
+		.tx_en(tx_en),
+		.tx_ready(tx_ready),
+		.tx_pin(uart_tx_pin)
     );
 	
 	wire [21:0] sampler_data_out;
@@ -101,7 +101,7 @@ module controller_test(
 	wire sampler_busy;
 	wire sampler_new_data;
 	
-	/*sampler #(.CLK_DIV(60)) SAMPLER0 (
+	sampler #(.CLK_DIV(60)) SAMPLER0 ( 
 		.clk(clk100),
 		.rst(rst_p),
 		.start(sampler_start),
@@ -114,7 +114,7 @@ module controller_test(
 		.current0_miso_pin(spi0_miso),
 		.current0_clkout_pin(spi0_clkout),
 		.current0_cs_pin(spi0_cs)		
-	);*/
+	);
 	
 	
 	/*
@@ -167,11 +167,9 @@ always @(posedge clk100) begin
 	if ( !rst ) begin
 		clk_25M_cnt <= 8'd0;
 		clk_25M <= 0;
-		led2_debug <= 1;
 
 	end
 	else begin
-		led2_debug <= 0;
 		if  (clk_25M_cnt == 8'd2)  begin 
 			clk_25M <= ~clk_25M;
 			clk_25M_cnt <= 8'd0;
@@ -244,7 +242,6 @@ always @(posedge clk_25M or negedge rst) begin
 		cnt_tmp <= 0;
 	end 
 	else begin
-	/*
 		case (state_ctl) 
 			CTL_START: begin
 				state_ctl <= WAITING_SPI_TEST;
@@ -270,7 +267,7 @@ always @(posedge clk_25M or negedge rst) begin
 			SPI_TEST_IDLE: begin
 			
 				cnt_tmp <= cnt_tmp +1;
-				if (cnt_tmp == 650000) begin
+				if (cnt_tmp == 65000) begin
 					sampler_start <= 1;
 					spi_test_ctl <= SPI_TEST_START;
 					cnt_tmp <= 0;
@@ -413,7 +410,6 @@ always @(posedge clk_25M or negedge rst) begin
 		endcase		
 	
 	
-	*/
 
 	    cnt_seg <= cnt_seg + 32'd1;
 		if (cnt_seg == 32'd500000) begin
