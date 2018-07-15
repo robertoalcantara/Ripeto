@@ -56,14 +56,28 @@ module controller_test(
 );
 	
 	//clock aux
-	reg [7:0] clk_25M_cnt;
-	reg clk_25M;
+	//reg [7:0] clk_25M_cnt;
 
     wire clk100;		
 	clk_wiz_v3_6 clkPLL (
         .CLK_IN1(clk), // IN
         .CLK_OUT1(clk100) // OUT
     );
+
+	wire clk_dac;
+	clk_divider #(.CLK_DIV(1000)) clk_div_dac (
+		.clk(clk100), 
+		.clk_out(clk_dac), 
+		.rst(rst_p)
+    );
+	
+	wire clk_25M;
+	clk_divider #(.CLK_DIV(4)) clk_div_25M (
+		.clk(clk100), 
+		.clk_out(clk_25M), 
+		.rst(rst_p)
+    );
+
 
 	assign rst_p = ~rst;
 	//memory user interface
@@ -129,7 +143,7 @@ module controller_test(
 	wire dac_ack_error;
 	
 	i2c_master dac (
-		.clk(clk), 
+		.clk(clk_dac), 
 		.reset_n(reset), 
 		.ena(dac_enable), 
 		.addr(dac_addr), 
@@ -150,24 +164,6 @@ reg debug7q;
 reg debug11q;
 
 reg [7:0] state_ctl;
-	
-always @(posedge clk100) begin
-
-	if ( !rst ) begin
-		clk_25M_cnt <= 8'd0;
-		clk_25M <= 0;
-	end
-	else begin
-		if  (clk_25M_cnt == 8'd2)  begin 
-			clk_25M <= ~clk_25M;
-			clk_25M_cnt <= 8'd0;
-		end 
-		else begin
-			clk_25M_cnt <= clk_25M_cnt + 8'd1;
-		end
-	
-	end
-end
 	
 	
 reg[31:0] cnt_seg; 
@@ -204,9 +200,9 @@ reg[20:0] cnt_tmp;
 
 reg [11:0] amost_output_r;
 
-always @(posedge clk_25M or negedge rst) begin
+always @(posedge clk_25M or posedge rst_p) begin
 
-	if ( !rst ) begin
+	if ( rst_p ) begin
 		state_ctl <= 8'd0;
 		debug7q <= 0;
 		cnt_seg <= 0;
@@ -219,27 +215,29 @@ always @(posedge clk_25M or negedge rst) begin
 		addr <= 23'd0;
 		data_in <= 0;
 		rw <= 0;
-		//led2_debug <= 1; //apaga
+		amost_output_r <= 0;
+
+		
+		led2_debug <= 1; //apaga
 		debug11q <= 0;
 		data_tmp <= 0;
-		amost_output_r <= 0;
 		
 		cnt_tmp <= 0;
 	end 
 	else begin
 		case (state_ctl) 
 			CTL_START: begin
-				state_ctl <= WAITING_SPI_TEST;
-				//state_ctl <= WAITING_MEMORY_TEST;
-				//memory_test_ctl <= MEMORY_TEST_START;
-				spi_test_ctl <= SPI_TEST_IDLE;
+				//state_ctl <= WAITING_SPI_TEST;
+				state_ctl <= WAITING_MEMORY_TEST;
+				memory_test_ctl <= MEMORY_TEST_START;
+				spi_test_ctl <= 20;// SPI_TEST_IDLE;
 
 			end
 			WAITING_MEMORY_TEST: begin
-				if (memory_test_ctl == MEMORY_TEST_FINISHED) state_ctl <= WAITING_SPI_TEST;
+				//if (memory_test_ctl == MEMORY_TEST_FINISHED) state_ctl <= WAITING_SPI_TEST;
 			end
 			WAITING_SPI_TEST: begin
-				if (spi_test_ctl == SPI_TEST_FINISHED) state_ctl <= state_ctl+1;
+				//if (spi_test_ctl == SPI_TEST_FINISHED) state_ctl <= state_ctl+1;
 			end
 			
 			default: begin
@@ -247,7 +245,7 @@ always @(posedge clk_25M or negedge rst) begin
 		
 		endcase
 
-
+/*
 		case (spi_test_ctl)
 			SPI_TEST_IDLE: begin
 			
@@ -322,10 +320,11 @@ always @(posedge clk_25M or negedge rst) begin
 			default: begin
 			end
 		endcase //spi_test
+*/
 
-
-		case (memory_test_ctl) 
+/*		case (memory_test_ctl) 
 			MEMORY_TEST_IDLE: begin
+				led2_debug <= 1; //apaga
 			end
 			
 			MEMORY_TEST_START: begin
@@ -391,12 +390,12 @@ always @(posedge clk_25M or negedge rst) begin
 			default: begin			
 			end
 			
-		endcase		
+		endcase*/		
 	
 	
 
 	    cnt_seg <= cnt_seg + 32'd1;
-		if (cnt_seg == 32'd500000) begin
+		if (cnt_seg == (32'd2500000)/2) begin //10Hz
 			cnt_seg <= 0;
 			led1_debug <= ~led1_debug; //led pulse
 		
@@ -407,9 +406,9 @@ end
 
 	
 	assign led1 = led1_debug;
-	assign led2 = led2_debug;	
-	assign debug7 = out_valid;//debug7q;
-	assign debug11 = debug11q;
+	assign led2 =  led2_debug;	
+	assign debug7 = debug7q;
+	assign debug11 = clk_dac ;//debug11q;
 	
 
 	

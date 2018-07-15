@@ -25,7 +25,7 @@ module clk_divider  #(parameter CLK_DIV = 2)(
     input wire rst
     );
 
-reg [11:0] cnt_clk;
+reg [16:0] cnt_clk;
 
 always @(posedge clk) begin
 	if (rst) begin
