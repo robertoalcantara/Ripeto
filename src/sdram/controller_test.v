@@ -51,8 +51,6 @@ module controller_test(
 	output spi1_cs	
 	
 );
-	//parameter ONE_SEC_DLY = 64'd50000000;
-	//parameter HALF_SEC_DLY = 64'd12000000; //25
 	
 	//clock aux
 	reg [7:0] clk_25M_cnt;
@@ -119,42 +117,6 @@ module controller_test(
 		.current0_cs_pin(spi0_cs)		
 	);
 	
-	
-	/*
-	wire [11:0] spi0_data_out;
-	reg spi0_start;
-	wire spi0_busy;
-	wire spi0_new_data;
-	
-	mcp3201_spi #(.CLK_DIV(60)) SPI0 ( //7 = ~781kHz
-		.clk(clk100),
-		.rst(rsp_p),
-		.data_in_pin(spi0_miso),
-		.clk_pin(spi0_clkout),
-		.start(spi0_start),
-		.data_out(spi0_data_out),
-		.busy(spi0_busy),
-		.new_data(spi0_new_data),
-		.cs_pin_n(spi0_cs)
-	);
-	
-
-	wire [11:0] spi1_data_out;
-	reg spi1_start;
-	wire spi1_busy;
-	wire spi1_new_data;
-	
-	mcp3201_spi #(.CLK_DIV(60)) SPI1 ( //7 = ~781kHz
-		.clk(clk100),
-		.rst(rsp_p),
-		.data_in_pin(spi1_miso),
-		.clk_pin(spi1_clkout),
-		.start(spi1_start),
-		.data_out(spi1_data_out),
-		.busy(spi1_busy),
-		.new_data(spi1_new_data),
-		.cs_pin_n(spi1_cs)
-	);*/
 
 
 //debug
@@ -170,7 +132,6 @@ always @(posedge clk100) begin
 	if ( !rst ) begin
 		clk_25M_cnt <= 8'd0;
 		clk_25M <= 0;
-
 	end
 	else begin
 		if  (clk_25M_cnt == 8'd2)  begin 
@@ -189,7 +150,6 @@ reg[31:0] cnt_seg;
 parameter CTL_START = 0;
 parameter WAITING_MEMORY_TEST = 1;
 parameter WAITING_SPI_TEST = 2;
-
 
 reg [7:0] memory_test_ctl;
 parameter MEMORY_TEST_IDLE 		= 0;
@@ -219,8 +179,6 @@ reg[31:0] data_tmp;
 reg[20:0] cnt_tmp;
 
 reg [11:0] amost_output_r;
-//wire [11:0] amost_output;
-//assign amost_output[15:0] = { (amost_output1&8'b00011111), amost_output2[7:1] };   
 
 always @(posedge clk_25M or negedge rst) begin
 
@@ -275,7 +233,6 @@ always @(posedge clk_25M or negedge rst) begin
 					spi_test_ctl <= SPI_TEST_START;
 					cnt_tmp <= 0;
 				end
-			
 				
 			end
 			SPI_TEST_START: begin
@@ -424,17 +381,6 @@ always @(posedge clk_25M or negedge rst) begin
 	end
 end
 
-	/*
-always @(posedge out_valid or negedge rst) begin
-	if (!rst) begin
-		data_readed <= 0;
-	
-	end
-	else begin
-		data_readed <= data_out;
-	end
-		
-end*/
 	
 	assign led1 = led1_debug;
 	assign led2 = led2_debug;	
