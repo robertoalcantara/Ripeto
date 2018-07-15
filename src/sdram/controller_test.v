@@ -23,7 +23,8 @@ module controller_test(
    
 	input clk, 
 	input rst,
-    output sdram_clk,
+    
+	output sdram_clk,
     output sdram_cle,
     output sdram_cs,
     output sdram_cas,
@@ -33,14 +34,16 @@ module controller_test(
     output [1:0] sdram_ba,
     output  [12:0] sdram_a,
     inout [15:0] sdram_dq,
+	
 	output led1, 
 	output led2,
 	output debug7,
 	output debug11,
+	
 	output uart_tx_pin,
 	
 	inout dac_sda,
-	output dac_scl,
+	inout dac_scl,
 	
 	input spi0_miso, //U3 current
 	output spi0_clkout,
@@ -117,6 +120,27 @@ module controller_test(
 		.current0_cs_pin(spi0_cs)		
 	);
 	
+	reg dac_enable;
+	reg [6:0] dac_addr;
+	reg dac_rw;
+	reg [7:0] dac_data_wr;
+	wire dac_busy;
+	wire [7:0] dac_data_rd;
+	wire dac_ack_error;
+	
+	i2c_master dac (
+		.clk(clk), 
+		.reset_n(reset), 
+		.ena(dac_enable), 
+		.addr(dac_addr), 
+		.rw(dac_rw), 
+		.data_wr(dac_data_wr), 
+		.busy(dac_busy), 
+		.data_rd(dac_data_rd), 
+		.ack_error(dac_ack_error), 
+		.sda(dac_sda), 
+		.scl(dac_scl)
+	);
 
 
 //debug
