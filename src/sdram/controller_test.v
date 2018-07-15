@@ -39,6 +39,9 @@ module controller_test(
 	output debug11,
 	output uart_tx_pin,
 	
+	inout dac_sda,
+	output dac_scl,
+	
 	input spi0_miso, //U3 current
 	output spi0_clkout,
 	output spi0_cs,

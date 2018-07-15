@@ -81,7 +81,7 @@ reg [7:0] state_ctl;
 assign busy = (state_ctl != 0);
 
 
-parameter NUM_SAMPLES = 2; //power of 2
+parameter NUM_SAMPLES = 32; //power of 2
 reg [7:0] samples_cnt;
 reg [31:0] v0_data_sum;
 reg [31:0] i0_data_sum;
