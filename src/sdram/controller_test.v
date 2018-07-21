@@ -54,9 +54,6 @@ module controller_test(
 	output spi1_cs	
 	
 );
-	
-	//clock aux
-	//reg [7:0] clk_25M_cnt;
 
     wire clk100;		
 	clk_wiz_v3_6 clkPLL (
@@ -64,12 +61,12 @@ module controller_test(
         .CLK_OUT1(clk100) // OUT
     );
 
-	wire clk_dac;
+	/*wire clk_dac;
 	clk_divider #(.CLK_DIV(1000)) clk_div_dac (
 		.clk(clk100), 
 		.clk_out(clk_dac), 
 		.rst(rst_p)
-    );
+    );*/
 	
 	wire clk_25M;
 	clk_divider #(.CLK_DIV(4)) clk_div_25M (
@@ -143,8 +140,8 @@ module controller_test(
 	wire dac_ack_error;
 	
 	i2c_master dac (
-		.clk(clk_dac), 
-		.reset_n(reset), 
+		.clk(clk100), 
+		.reset_n(rst), 
 		.ena(dac_enable), 
 		.addr(dac_addr), 
 		.rw(dac_rw), 
@@ -195,6 +192,20 @@ parameter SPI_TEST_FAULT 		= 19;
 parameter SPI_TEST_FINISHED		= 20;
 
 
+reg [7:0] dac_test_ctl;
+parameter MCP47FEB_ID			= 7'b110_0000; 
+parameter DAC0_REG				= 5'b0;
+parameter DAC1_REG				= 5'b1;
+parameter CMD_WRITE				= 2'b0;
+parameter CMD_READ				= 2'b11;
+
+
+parameter DAC_TEST_IDLE			= 0;
+parameter DAC_TEST_START		= 1;
+
+
+
+
 reg[31:0] data_tmp;
 reg[20:0] cnt_tmp;
 
@@ -211,6 +222,7 @@ always @(posedge clk_25M or posedge rst_p) begin
 		memory_test_ctl <= MEMORY_TEST_IDLE;
 		spi_test_ctl <= SPI_TEST_IDLE;
 		state_ctl <= CTL_START;
+		dac_test_ctl <= DAC_TEST_IDLE;
 		
 		addr <= 23'd0;
 		data_in <= 0;
@@ -225,12 +237,58 @@ always @(posedge clk_25M or posedge rst_p) begin
 		cnt_tmp <= 0;
 	end 
 	else begin
-		case (state_ctl) 
+	
+
+		case (dac_test_ctl)
+			DAC_TEST_IDLE: begin
+				dac_test_ctl <= DAC_TEST_START;
+			end
+			
+			DAC_TEST_START: begin
+				if (! dac_busy) begin
+					dac_rw <= 1; //write
+					dac_enable <= 1;
+					dac_addr <= {MCP47FEB_ID, 1'b0};
+					dac_data_wr <= {DAC0_REG, CMD_WRITE, 1'b0};
+					dac_test_ctl <= 2;
+				end
+			end
+			2: begin
+				if (! dac_busy) begin
+					dac_data_wr <= 8'h00;
+					dac_test_ctl <= dac_test_ctl+1;				
+				end			
+			end
+			3: begin
+				if (! dac_busy) begin
+					dac_data_wr <= 8'h00;
+					dac_test_ctl <= dac_test_ctl+1;				
+				end			
+			end
+			
+			4: begin
+				if (! dac_busy) begin
+					dac_enable <= 0;
+					dac_test_ctl <= 4;
+				end
+			end
+			
+			
+			default: begin
+			
+			end
+			
+		
+		endcase
+	
+	
+	
+/*		case (state_ctl) 
 			CTL_START: begin
 				//state_ctl <= WAITING_SPI_TEST;
-				state_ctl <= WAITING_MEMORY_TEST;
-				memory_test_ctl <= MEMORY_TEST_START;
-				spi_test_ctl <= 20;// SPI_TEST_IDLE;
+				//state_ctl <= WAITING_MEMORY_TEST;
+				//memory_test_ctl <= MEMORY_TEST_START;
+				//spi_test_ctl <= 20;// SPI_TEST_IDLE;
 
 			end
 			WAITING_MEMORY_TEST: begin
@@ -244,7 +302,7 @@ always @(posedge clk_25M or posedge rst_p) begin
 			end
 		
 		endcase
-
+*/
 /*
 		case (spi_test_ctl)
 			SPI_TEST_IDLE: begin
@@ -406,9 +464,9 @@ end
 
 	
 	assign led1 = led1_debug;
-	assign led2 =  led2_debug;	
+	assign led2 =  dac_ack_error;	
 	assign debug7 = debug7q;
-	assign debug11 = clk_dac ;//debug11q;
+	assign debug11 = debug11q;
 	
 
 	
