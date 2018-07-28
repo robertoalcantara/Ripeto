@@ -131,15 +131,15 @@ module controller_test(
 		.current0_cs_pin(spi0_cs)		
 	);
 	
-	reg dac_enable;
+	/*reg dac_enable;
 	reg [6:0] dac_addr;
 	reg dac_rw;
 	reg [7:0] dac_data_wr;
 	wire dac_busy;
 	wire [7:0] dac_data_rd;
-	wire dac_ack_error;
+	wire dac_ack_error;*/
 	
-	i2c_master dac (
+	/*i2c_master dac (
 		.clk(clk100), 
 		.reset_n(rst), 
 		.ena(dac_enable), 
@@ -151,8 +151,79 @@ module controller_test(
 		.ack_error(dac_ack_error), 
 		.sda(dac_sda), 
 		.scl(dac_scl)
-	);
+	);*/
+	
+		
+	// Instantiate the module
+	reg [6:0] dac_cmd_address;
+	reg dac_cmd_start;
+	reg dac_cmd_read;
+	reg dac_cmd_write;
+	reg dac_cmd_write_multiple;
+	reg dac_cmd_stop;
+	reg dac_cmd_valid;
+	wire dac_cmd_ready;
+	
+	reg [7:0] dac_data_in;
+	reg dac_data_in_valid;
+	wire dac_data_in_ready;
+	reg dac_data_in_last;
+	
+	wire [7:0] dac_data_out;
+	wire dac_data_out_valid;
+	reg dac_data_out_ready;
+	wire dac_data_out_last;
+	
+	wire scl_i;
+	wire scl_o;
+	wire scl_t;
+	wire sda_i;
+	wire sda_o;
+	wire sda_t;
+	
+	wire dac_busy;
+	wire dac_bus_control;
+	wire dac_missed_ack;
+	
+	i2c_master dac (
+		.clk(clk100), 
+		.rst(rst_p), 
+		.cmd_address(dac_cmd_address), 
+		.cmd_start(dac_cmd_start), 
+		.cmd_read(dac_cmd_read), 
+		.cmd_write(dac_cmd_write), 
+		.cmd_write_multiple(dac_cmd_write_multiple), 
+		.cmd_stop(dac_cmd_stop), 
+		.cmd_valid(dac_cmd_valid), 
+		.cmd_ready(dac_cmd_ready), 
+		.data_in(dac_data_in), 
+		.data_in_valid(dac_data_in_valid), 
+		.data_in_ready(dac_data_in_ready), 
+		.data_in_last(dac_data_in_last), 
+		.data_out(dac_data_out), 
+		.data_out_valid(dac_data_out_valid), 
+		.data_out_ready(dac_data_out_ready), 
+		.data_out_last(dac_data_out_last), 
+		.scl_i(scl_i), 
+		.scl_o(scl_o), 
+		.scl_t(scl_t), 
+		.sda_i(sda_i), 
+		.sda_o(sda_o), 
+		.sda_t(sda_t), 
+		.busy(dac_busy), 
+		.bus_control(dac_bus_control), 
+		.bus_active(dac_bus_active), 
+		.missed_ack(dac_missed_ack), 
+		.prescale(15'd250), 
+		.stop_on_idle(1'b0)
+		);
 
+	assign scl_i = dac_scl;
+	assign dac_scl = scl_o ? 1'bz : 1'b0;
+	assign sda_i = dac_sda;
+	assign dac_sda = sda_o ? 1'bz : 1'b0;
+
+	
 
 //debug
 (* IOB = "TRUE" *)
@@ -208,7 +279,7 @@ parameter DAC_TEST_START		= 1;
 
 reg[31:0] data_tmp;
 reg[20:0] cnt_tmp;
-
+reg [15:0] dac_cnt;
 reg [11:0] amost_output_r;
 
 always @(posedge clk_25M or posedge rst_p) begin
@@ -235,6 +306,20 @@ always @(posedge clk_25M or posedge rst_p) begin
 		data_tmp <= 0;
 		
 		cnt_tmp <= 0;
+		
+		dac_cnt <=0;		
+		dac_cmd_address <= 0;
+		dac_cmd_start <= 0;
+		dac_cmd_read <= 0;
+		dac_cmd_write<= 0;
+		dac_cmd_write_multiple <= 0;
+		dac_cmd_stop <= 0;
+		dac_cmd_valid <= 0;
+		dac_data_in <= 0 ;
+		dac_data_in_valid <= 0;
+		dac_data_in_last <= 0;
+		dac_data_out_ready <= 0;		
+
 	end 
 	else begin
 	
@@ -244,35 +329,48 @@ always @(posedge clk_25M or posedge rst_p) begin
 				dac_test_ctl <= DAC_TEST_START;
 			end
 			
-			DAC_TEST_START: begin
-				if (! dac_busy) begin
-					dac_rw <= 1; //write
-					dac_enable <= 1;
-					dac_addr <= {MCP47FEB_ID, 1'b0};
-					dac_data_wr <= {DAC0_REG, CMD_WRITE, 1'b0};
+			1: begin
+				if ( dac_cmd_ready ) begin
+					dac_cmd_start <= 0;
+					dac_cmd_write_multiple <= 1;
+					dac_cmd_valid <= 1;
+					dac_cmd_stop <= 1;
+					dac_data_in_last <= 0;
+					dac_cmd_address <= MCP47FEB_ID;
 					dac_test_ctl <= 2;
 				end
 			end
+			
 			2: begin
-				if (! dac_busy) begin
-					dac_data_wr <= 8'h00;
-					dac_test_ctl <= dac_test_ctl+1;				
-				end			
+					dac_cmd_valid <= 0;
+					dac_data_in_last <= 0;
+					dac_data_in_valid <= 1;
+					dac_data_in <= {DAC0_REG, CMD_WRITE, 1'b0};
+					if (dac_data_in_ready) dac_test_ctl <= 3;
 			end
+			
 			3: begin
-				if (! dac_busy) begin
-					dac_data_wr <= 8'h00;
-					dac_test_ctl <= dac_test_ctl+1;				
-				end			
+					dac_data_in_last <= 0;
+					dac_data_in_valid <= 1;
+					dac_data_in <= dac_cnt[15:8];
+					if (dac_data_in_ready) dac_test_ctl <= 4;
 			end
 			
+		
 			4: begin
-				if (! dac_busy) begin
-					dac_enable <= 0;
-					dac_test_ctl <= 4;
-				end
+					dac_data_in_last <= 1;
+					dac_data_in_valid <= 1;
+					dac_data_in <= dac_cnt[7:0];
+					if (dac_data_in_ready) dac_test_ctl <= 5;
 			end
-			
+						
+			5: begin
+				dac_cmd_valid <= 0;			
+				dac_cmd_write_multiple <= 0;
+				dac_cmd_start <= 0;
+				dac_cnt <= dac_cnt + 1;
+				dac_test_ctl <= 1;
+			end
 			
 			default: begin
 			
@@ -464,7 +562,7 @@ end
 
 	
 	assign led1 = led1_debug;
-	assign led2 =  dac_ack_error;	
+	assign led2 =  led2_debug;	
 	assign debug7 = debug7q;
 	assign debug11 = debug11q;
 	
