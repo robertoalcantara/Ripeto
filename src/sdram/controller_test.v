@@ -215,7 +215,7 @@ module controller_test(
 		.bus_active(dac_bus_active), 
 		.missed_ack(dac_missed_ack), 
 		.prescale(15'd250), 
-		.stop_on_idle(1'b0)
+		.stop_on_idle(1'b1)
 		);
 
 	assign scl_i = dac_scl;
@@ -279,10 +279,13 @@ parameter DAC_TEST_START		= 1;
 
 reg[31:0] data_tmp;
 reg[20:0] cnt_tmp;
-reg [15:0] dac_cnt;
+reg [15:0] dac_value;
+
 reg [11:0] amost_output_r;
 
-always @(posedge clk_25M or posedge rst_p) begin
+reg [20:0] startup_delay;
+
+always @(posedge clk100 or posedge rst_p) begin
 
 	if ( rst_p ) begin
 		state_ctl <= 8'd0;
@@ -307,7 +310,8 @@ always @(posedge clk_25M or posedge rst_p) begin
 		
 		cnt_tmp <= 0;
 		
-		dac_cnt <=0;		
+		dac_value <=0;		
+
 		dac_cmd_address <= 0;
 		dac_cmd_start <= 0;
 		dac_cmd_read <= 0;
@@ -319,22 +323,25 @@ always @(posedge clk_25M or posedge rst_p) begin
 		dac_data_in_valid <= 0;
 		dac_data_in_last <= 0;
 		dac_data_out_ready <= 0;		
-
+		startup_delay <= 0;
 	end 
 	else begin
 	
-
+		dac_value <= 16'hffff;
+		
 		case (dac_test_ctl)
 			DAC_TEST_IDLE: begin
-				dac_test_ctl <= DAC_TEST_START;
+			led2_debug <= 1; //apaga
+				startup_delay <= startup_delay + 1;
+				if (startup_delay > 100_000) dac_test_ctl <= DAC_TEST_START;
 			end
 			
 			1: begin
 				if ( dac_cmd_ready ) begin
-					dac_cmd_start <= 0;
 					dac_cmd_write_multiple <= 1;
 					dac_cmd_valid <= 1;
 					dac_cmd_stop <= 1;
+					dac_cmd_start <= 1;
 					dac_data_in_last <= 0;
 					dac_cmd_address <= MCP47FEB_ID;
 					dac_test_ctl <= 2;
@@ -345,31 +352,30 @@ always @(posedge clk_25M or posedge rst_p) begin
 					dac_cmd_valid <= 0;
 					dac_data_in_last <= 0;
 					dac_data_in_valid <= 1;
-					dac_data_in <= {DAC0_REG, CMD_WRITE, 1'b0};
+					dac_data_in <= {DAC1_REG, CMD_WRITE, 1'b0};
 					if (dac_data_in_ready) dac_test_ctl <= 3;
 			end
 			
 			3: begin
 					dac_data_in_last <= 0;
 					dac_data_in_valid <= 1;
-					dac_data_in <= dac_cnt[15:8];
+					dac_data_in <= 8'hFF;
 					if (dac_data_in_ready) dac_test_ctl <= 4;
 			end
-			
-		
+	
 			4: begin
 					dac_data_in_last <= 1;
 					dac_data_in_valid <= 1;
-					dac_data_in <= dac_cnt[7:0];
-					if (dac_data_in_ready) dac_test_ctl <= 5;
+					dac_data_in <= 8'hFF;
+					if (!dac_busy) dac_test_ctl <= 5;
 			end
 						
 			5: begin
+				dac_data_in_last <= 0;
 				dac_cmd_valid <= 0;			
 				dac_cmd_write_multiple <= 0;
-				dac_cmd_start <= 0;
-				dac_cnt <= dac_cnt + 1;
-				dac_test_ctl <= 1;
+							led2_debug <= 0; //acende
+
 			end
 			
 			default: begin
@@ -551,7 +557,7 @@ always @(posedge clk_25M or posedge rst_p) begin
 	
 
 	    cnt_seg <= cnt_seg + 32'd1;
-		if (cnt_seg == (32'd2500000)/2) begin //10Hz
+		if (cnt_seg == (32'd25000000)/2) begin 
 			cnt_seg <= 0;
 			led1_debug <= ~led1_debug; //led pulse
 		

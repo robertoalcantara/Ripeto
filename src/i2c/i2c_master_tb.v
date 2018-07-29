@@ -84,7 +84,7 @@ module i2c_master_tb();
 		.bus_active(dac_bus_active), 
 		.missed_ack(dac_missed_ack), 
 		.prescale(15'd500), 
-		.stop_on_idle(1'b0)
+		.stop_on_idle(1'b1)
 		);
 
 	
@@ -141,10 +141,10 @@ module i2c_master_tb();
 			
 			1: begin
 				if ( dac_cmd_ready ) begin
-					dac_cmd_start <= 0;
 					dac_cmd_write_multiple <= 1;
-					dac_cmd_valid <= 1;
+					dac_cmd_start <= 1;
 					dac_cmd_stop <= 1;
+					dac_cmd_valid <= 1;
 					dac_data_in_last <= 0;
 					dac_cmd_address <= 8'h01;//MCP47FEB_ID;
 					dac_test_ctl <= 2;
@@ -169,14 +169,14 @@ module i2c_master_tb();
 			4: begin
 					dac_data_in_last <= 1;
 					dac_data_in_valid <= 1;
-					dac_data_in <= 8'h05;//{DAC0_REG, CMD_WRITE, 1'b0};
-					if (dac_data_in_ready) dac_test_ctl <= 5;
+					dac_data_in <= 8'h09;//{DAC0_REG, CMD_WRITE, 1'b0};
+					if (!dac_busy) dac_test_ctl <= 5;
 			end
 						
 			5: begin
+				dac_data_in_last <= 0;
 				dac_cmd_valid <= 0;			
 				dac_cmd_write_multiple <= 0;
-				dac_cmd_start <= 0;
 			end
 			
 			
