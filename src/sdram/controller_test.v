@@ -326,9 +326,7 @@ always @(posedge clk100 or posedge rst_p) begin
 		startup_delay <= 0;
 	end 
 	else begin
-	
-		dac_value <= 16'hffff;
-		
+			
 		case (dac_test_ctl)
 			DAC_TEST_IDLE: begin
 			led2_debug <= 1; //apaga
@@ -359,14 +357,14 @@ always @(posedge clk100 or posedge rst_p) begin
 			3: begin
 					dac_data_in_last <= 0;
 					dac_data_in_valid <= 1;
-					dac_data_in <= 8'hFF;
+					dac_data_in <= dac_value[15:8];
 					if (dac_data_in_ready) dac_test_ctl <= 4;
 			end
 	
 			4: begin
 					dac_data_in_last <= 1;
 					dac_data_in_valid <= 1;
-					dac_data_in <= 8'hFF;
+					dac_data_in <= dac_value[7:0];
 					if (!dac_busy) dac_test_ctl <= 5;
 			end
 						
@@ -374,7 +372,9 @@ always @(posedge clk100 or posedge rst_p) begin
 				dac_data_in_last <= 0;
 				dac_cmd_valid <= 0;			
 				dac_cmd_write_multiple <= 0;
-							led2_debug <= 0; //acende
+				led2_debug <= 0; //acende
+				dac_value <= dac_value +1;
+				dac_test_ctl <= 1;
 
 			end
 			
