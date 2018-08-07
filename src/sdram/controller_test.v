@@ -155,7 +155,7 @@ module controller_test(
 	
 		
 	// Instantiate the module
-	reg [6:0] dac_cmd_address;
+	/*reg [6:0] dac_cmd_address;
 	reg dac_cmd_start;
 	reg dac_cmd_read;
 	reg dac_cmd_write;
@@ -221,9 +221,21 @@ module controller_test(
 	assign scl_i = dac_scl;
 	assign dac_scl = scl_o ? 1'bz : 1'b0;
 	assign sda_i = dac_sda;
-	assign dac_sda = sda_o ? 1'bz : 1'b0;
+	assign dac_sda = sda_o ? 1'bz : 1'b0;*/
 
-	
+
+
+
+	reg [15:0] dac_value;
+	// Instantiate the module
+	dac dac1 (
+		.clk(clk100), 
+		.rst(rst_p), 
+		.ch_value(dac_value), 
+		.i2c_scl_pin(dac_scl), 
+		.i2c_sda_pin(dac_sda)
+		);
+
 
 //debug
 (* IOB = "TRUE" *)
@@ -262,7 +274,7 @@ parameter SPI_TEST_PRINT6		= 9;
 parameter SPI_TEST_FAULT 		= 19;
 parameter SPI_TEST_FINISHED		= 20;
 
-
+/*
 reg [7:0] dac_test_ctl;
 parameter MCP47FEB_ID			= 7'b110_0000; 
 parameter DAC0_REG				= 5'b0;
@@ -275,8 +287,6 @@ parameter DAC_TEST_IDLE			= 0;
 parameter DAC_TEST_START		= 1;
 
 
-
-
 reg[31:0] data_tmp;
 reg[20:0] cnt_tmp;
 reg [15:0] dac_value;
@@ -284,6 +294,9 @@ reg [15:0] dac_value;
 reg [11:0] amost_output_r;
 
 reg [20:0] startup_delay;
+*/
+
+reg [15:0] dac_cnt;
 
 always @(posedge clk100 or posedge rst_p) begin
 
@@ -296,18 +309,18 @@ always @(posedge clk100 or posedge rst_p) begin
 		memory_test_ctl <= MEMORY_TEST_IDLE;
 		spi_test_ctl <= SPI_TEST_IDLE;
 		state_ctl <= CTL_START;
-		dac_test_ctl <= DAC_TEST_IDLE;
+//		dac_test_ctl <= DAC_TEST_IDLE;
 		
 		addr <= 23'd0;
 		data_in <= 0;
 		rw <= 0;
-		amost_output_r <= 0;
+//		amost_output_r <= 0;
 
 		
 		led2_debug <= 1; //apaga
 		debug11q <= 0;
-		data_tmp <= 0;
-		
+//		data_tmp <= 0;
+		/*
 		cnt_tmp <= 0;
 		
 		dac_value <=0;		
@@ -323,11 +336,14 @@ always @(posedge clk100 or posedge rst_p) begin
 		dac_data_in_valid <= 0;
 		dac_data_in_last <= 0;
 		dac_data_out_ready <= 0;		
-		startup_delay <= 0;
+		startup_delay <= 0;*/
+		
+		dac_value <= 0;
+		dac_cnt <= 0;
 	end 
 	else begin
 			
-		case (dac_test_ctl)
+		/*case (dac_test_ctl)
 			DAC_TEST_IDLE: begin
 			led2_debug <= 1; //apaga
 				startup_delay <= startup_delay + 1;
@@ -383,7 +399,7 @@ always @(posedge clk100 or posedge rst_p) begin
 			end
 			
 		
-		endcase
+		endcase*/
 	
 	
 	
@@ -554,13 +570,17 @@ always @(posedge clk100 or posedge rst_p) begin
 			
 		endcase*/		
 	
-	
-
+		dac_cnt <= dac_cnt + 15'd1;
+		if (dac_cnt == (32'd25000)/2) begin
+			dac_cnt <= 0;
+			dac_value <= 512;//dac_value + 50;
+		end
+		
+		
 	    cnt_seg <= cnt_seg + 32'd1;
 		if (cnt_seg == (32'd25000000)/2) begin 
 			cnt_seg <= 0;
 			led1_debug <= ~led1_debug; //led pulse
-		
 		end
 	
 	end
