@@ -44,7 +44,6 @@ module sampler #(parameter CLK_DIV = 1)(
 	wire [11:0] v0_data_out;
 	wire [11:0] i0_data_out;
 	wire v0_new_data;
-
 		
 	mcp3201_spi #(.CLK_DIV(CLK_DIV)) SPI0_V ( 
 		.clk(clk),
@@ -116,7 +115,7 @@ always @(posedge clk or posedge rst) begin
 						start_msp <= 0;
 						state_ctl <= SPI_CALC;
 					end 
-					else begin
+					else begin	
 						v0_data_sum <= v0_data_sum + v0_data_out;
 						i0_data_sum <= i0_data_sum + i0_data_out;
 						samples_cnt <= samples_cnt + 1;

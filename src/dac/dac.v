@@ -101,7 +101,6 @@ module dac(
 ////////////////////////
 	
 	reg [7:0] dac_ctl;
-	reg dac_start_next;
 
 	parameter MCP47FEB_ID			= 7'b110_0000; 
 	parameter DAC0_REG				= 5'b0;
@@ -116,10 +115,6 @@ module dac(
 	parameter DAC_VL1		= 3;
 	parameter DAC_VL2		= 4;
 	parameter DAC_STOP		= 5;
-
-	always @(ch_value) begin
-		dac_ctl_next = DAC_START;
-	end
 
 	always @(posedge clk or posedge rst) begin
 			
@@ -143,7 +138,7 @@ module dac(
 				
 			case (dac_ctl)
 				DAC_IDLE: begin
-					dac_ctl <= dac_ctl_next;
+
 				end
 				
 				DAC_START: begin
@@ -169,7 +164,7 @@ module dac(
 				DAC_VL1: begin
 						dac_data_in_last <= 0;
 						dac_data_in_valid <= 1;
-						dac_data_in <= ch_value[15:8]; 
+						dac_data_in <= ch_value[15:8]; //{4'b0000, ch_value[11:8]};
 						if (dac_data_in_ready) dac_ctl <= 4;
 				end
 		
@@ -184,7 +179,7 @@ module dac(
 					dac_data_in_last <= 0;
 					dac_cmd_valid <= 0;			
 					dac_cmd_write_multiple <= 0;
-					dac_ctl <= DAC_IDLE;
+					dac_ctl <= 1;
 				end
 				
 				default: begin

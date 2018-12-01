@@ -114,7 +114,7 @@ always @(posedge clk_slow or posedge rst) begin
 			5: begin
 				cs_r <= 1; //disable cs
 				clk_enable <= 0; //disabe clock
-				
+				new_data_r <= 0; 
 				main_state <= main_state+1; //wait
 			end
 			6: begin
