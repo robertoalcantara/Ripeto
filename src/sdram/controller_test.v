@@ -86,6 +86,19 @@ module controller_test(
 		.tx_pin(uart_tx_pin)
     );
 	
+  	
+	reg[3:0] led1_mode, led1_mode_next;
+	reg led1_fast;
+	wire busy;
+	led_flash LED0 (
+    .clk(clk100),
+    .rst(rst_p),
+    .mode(led1_mode),
+	 .mode_fast(led1_fast),
+	 .busy(led1_busy),
+    .led_pin(led1)
+    );	
+	
 (* IOB = "TRUE" *)
 reg led1_debug, led2_debug;
 reg led1_debug_next, led2_debug_next;
@@ -130,7 +143,9 @@ always @(posedge clk100 or posedge rst_p) begin
 		
 		debug11q <= 0;
 		debug7q <= 0;
-		led1_debug <= 1; //apaga
+		//led1_debug <= 1; //apaga
+		led1_mode <= 0;
+		led1_fast <= 0;
 		led2_debug <= 1; //apaga
 		
 	end 
@@ -152,12 +167,13 @@ always @(posedge clk100 or posedge rst_p) begin
 		memory_test_ctl <= memory_test_ctl_next;
 		
 
-	   cnt_seg <= cnt_seg + 32'd1;
-		if (cnt_seg == (32'd25000000)/2) begin 
-			cnt_seg <= 0;
-			led1_debug <= ~led1_debug; //led pulse
-		end 		
-		
+	   //cnt_seg <= cnt_seg + 32'd1;
+		//if (cnt_seg == (32'd25000000)/2) begin 
+		//	cnt_seg <= 0;
+		//	led1_debug <= ~led1_debug; //led pulse
+		//end
+		led1_mode <= 4;
+		led1_fast <= 1;
 	end
 end
 
@@ -177,7 +193,7 @@ always @(*) begin
 		tx_en_next = tx_en;
 		debug11q_next = debug11q;
 		debug7q_next = debug7q;
-		led1_debug_next = led1_debug;
+		//led1_debug_next = led1_debug;
 		led2_debug_next = led2_debug;
 		
 				
@@ -240,7 +256,7 @@ always @(*) begin
 			end
 			MEMORY_TEST_FINISHED: begin
 				debug11q_next = 1;
-				led2_debug_next = ~led1_debug; //acende
+				led2_debug_next = ~led1_debug; //pisca
 
 			end
 
@@ -257,7 +273,6 @@ always @(*) begin
 end
 
 	
-	assign led1 = led1_debug;
 	assign led2 =  led2_debug;	
 	assign debug7 = debug7q;
 	assign debug11 = debug11q;

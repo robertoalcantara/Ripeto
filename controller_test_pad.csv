@@ -1,7 +1,7 @@
 #Release 14.7 - par P.20131013 (lin64)
 #Copyright (c) 1995-2013 Xilinx, Inc.  All rights reserved.
 
-#Tue Jan  1 04:16:17 2019
+#Tue Jan  1 10:46:47 2019
 
 #
 ## NOTE: This file is designed to be imported into a spreadsheet program
@@ -267,7 +267,7 @@ T5,,IOBS,IO_L48N_RDWR_B_VREF_2,UNUSED,,2,,,,,,,,,
 T6,,IOBS,IO_L47N_2,UNUSED,,2,,,,,,,,,
 T7,,IOBS,IO_L32N_GCLK28_2,UNUSED,,2,,,,,,,,,
 T8,,IOBS,IO_L30N_GCLK0_USERCCLK_2,UNUSED,,2,,,,,,,,,
-T9,led1,IOB,IO_L23N_2,OUTPUT,LVTTL,2,12,SLOW,,,,LOCATED,YES,NONE,
+T9,led1,IOB,IO_L23N_2,OUTPUT,LVTTL,2,12,SLOW,,,,LOCATED,NO,NONE,
 T10,,IOBS,IO_L3N_MOSI_CSI_B_MISO0_2,UNUSED,,2,,,,,,,,,
 T11,,IOBS,IO_L1N_M0_CMPMISO_2,UNUSED,,2,,,,,,,,,
 T12,,IOBS,IO_L52N_M1DQ15_1,UNUSED,,1,,,,,,,,,
