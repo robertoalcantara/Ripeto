@@ -23,6 +23,7 @@ module controller_test(
    
 	input clk, 
 	input rst,
+	input sw2,
     
 	output sdram_clk,
     output sdram_cle,
@@ -88,9 +89,9 @@ module controller_test(
 	
   	
 	reg[3:0] led1_mode, led1_mode_next;
-	reg led1_fast;
-	wire busy;
-	led_flash LED0 (
+	reg led1_fast, led1_fast_next;
+	wire led1_busy;
+	led_flash LED1 (
     .clk(clk100),
     .rst(rst_p),
     .mode(led1_mode),
@@ -99,9 +100,28 @@ module controller_test(
     .led_pin(led1)
     );	
 	
-(* IOB = "TRUE" *)
-reg led1_debug, led2_debug;
-reg led1_debug_next, led2_debug_next;
+	reg[3:0] led2_mode, led2_mode_next;
+	reg led2_fast, led2_fast_next;
+	wire led2_busy;
+	led_flash LED2 (
+    .clk(clk100),
+    .rst(rst_p),
+    .mode(led2_mode),
+	 .mode_fast(led2_fast),
+	 .busy(led2_busy),
+    .led_pin(led2)
+    );		
+	 
+	 
+    wire sw2_state;
+	 sw_debouncer SW2(
+    .clk(clk100),
+    .PB(sw2),  // "PB" is the glitchy, asynchronous to clk, active low push-button signal
+    // from which we make three outputs, all synchronous to the clock
+    .PB_state(),  // 1 as long as the push-button is active (down)
+    .PB_down(),  // 1 for one clock cycle when the push-button goes down (i.e. just pushed)
+    .PB_up(sw2_state)   // 1 for one clock cycle when the push-button goes up (i.e. just released)
+);	
 
 (* IOB = "TRUE" *)
 reg debug7q, debug11q;
@@ -131,7 +151,7 @@ always @(posedge clk100 or posedge rst_p) begin
 	if ( rst_p ) begin
 		cnt_seg <= 0;
 
-		memory_test_ctl <= MEMORY_TEST_START;
+		memory_test_ctl <= MEMORY_TEST_IDLE;
 		addr <= 0;
 		rw <= 0;
 		data_in <= 0;
@@ -143,11 +163,11 @@ always @(posedge clk100 or posedge rst_p) begin
 		
 		debug11q <= 0;
 		debug7q <= 0;
-		//led1_debug <= 1; //apaga
-		led1_mode <= 0;
+
+		led1_mode <= 1;
 		led1_fast <= 0;
-		led2_debug <= 1; //apaga
-		
+		led2_mode <= 0;
+		led2_fast <= 0;		
 	end 
 	else begin
 	
@@ -156,8 +176,6 @@ always @(posedge clk100 or posedge rst_p) begin
 	
 		debug11q <= debug11q_next;
 		debug7q <= debug7q_next;
-		//led1_debug <= led1_debug_next;
-		led2_debug <= led2_debug_next;
 	
 		addr <= addr_next;
 		rw <= rw_next;
@@ -166,14 +184,13 @@ always @(posedge clk100 or posedge rst_p) begin
 		data_tmp <= data_tmp_next;
 		memory_test_ctl <= memory_test_ctl_next;
 		
+		led1_mode <= led1_mode_next;
+		led1_fast <= led1_fast_next;
+		led2_mode <= led2_mode_next;
+		led2_fast <= led2_fast_next;
+		
+		if (sw2_state) memory_test_ctl <= MEMORY_TEST_START;
 
-	   //cnt_seg <= cnt_seg + 32'd1;
-		//if (cnt_seg == (32'd25000000)/2) begin 
-		//	cnt_seg <= 0;
-		//	led1_debug <= ~led1_debug; //led pulse
-		//end
-		led1_mode <= 4;
-		led1_fast <= 1;
 	end
 end
 
@@ -188,20 +205,24 @@ always @(*) begin
 		enable_next = enable;
 		data_tmp_next = data_tmp;
 		memory_test_ctl_next = memory_test_ctl;
+		led1_mode_next = led1_mode;
+		led1_fast_next = led1_fast;
+		led2_mode_next = led2_mode;
+		led2_fast_next = led2_fast;
 		
 		tx_byte_next = tx_byte;
 		tx_en_next = tx_en;
 		debug11q_next = debug11q;
 		debug7q_next = debug7q;
-		//led1_debug_next = led1_debug;
-		led2_debug_next = led2_debug;
 		
 				
 		case (memory_test_ctl) 
+			MEMORY_TEST_IDLE: begin
+				tx_en_next = 0; //debug
+				led2_mode_next = 1;	led2_fast_next = 1;
+			end
 			
 			MEMORY_TEST_START: begin
-				tx_en_next = 0; //debug
-
 				if ( ready ) begin
 					data_in_next = data_tmp;
 					rw_next = 1;
@@ -255,13 +276,13 @@ always @(*) begin
 				end
 			end
 			MEMORY_TEST_FINISHED: begin
+				led2_mode_next = 3; led2_fast_next = 1;
 				debug11q_next = 1;
-				led2_debug_next = ~led1_debug; //pisca
 
 			end
 
 			MEMORY_TEST_FAULT: begin
-				led2_debug_next = 0; //acende
+				led2_mode_next = 15; led2_fast_next = 1;
 			end
 					
 				
@@ -273,7 +294,6 @@ always @(*) begin
 end
 
 	
-	assign led2 =  led2_debug;	
 	assign debug7 = debug7q;
 	assign debug11 = debug11q;
 	
