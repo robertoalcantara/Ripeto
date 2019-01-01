@@ -1,0 +1,33 @@
+
+NET "clk" LOC = A10;
+NET "led1" LOC = T9;
+NET "led2" LOC = R9;
+NET "debug7" LOC = A14;
+NET "debug11" LOC = B12;
+NET "uart_tx_pin" LOC = C11;
+NET "rst" LOC = R7;
+NET "spi0_miso" LOC = C6;
+NET "spi0_clkout" LOC = F7;
+NET "spi0_cs" LOC = D6;
+NET "spi1_miso" LOC = N5;  
+NET "spi1_clkout" LOC = P4; 
+NET "spi1_cs" LOC = P5;
+
+
+# PlanAhead Generated IO constraints 
+
+NET "clk" IOSTANDARD = LVTTL;
+NET "led1" IOSTANDARD = LVTTL;
+NET "led2" IOSTANDARD = LVTTL;
+NET "debug7" IOSTANDARD = LVTTL;
+NET "debug11" IOSTANDARD = LVTTL;
+NET "uart_tx_pin" IOSTANDARD = LVTTL;
+NET "rst" IOSTANDARD = LVTTL;
+NET "spi0_miso" IOSTANDARD = LVTTL | PULLDOWN;
+NET "spi0_clkout" IOSTANDARD = LVTTL;
+NET "spi0_cs" IOSTANDARD = LVTTL;
+NET "spi1_miso" IOSTANDARD = LVTTL  | PULLDOWN;
+NET "spi1_clkout" IOSTANDARD = LVTTL;
+NET "spi1_cs" IOSTANDARD = LVTTL;
+
+
