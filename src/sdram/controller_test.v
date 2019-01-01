@@ -53,7 +53,7 @@ module controller_test(
 	assign rst_p = ~rst;
 	
 	//memory user interface
-	reg [20:0] addr, addr_next;      // address to read/write
+	reg [22:0] addr, addr_next;      // address to read/write
 	reg rw, rw_next;               // 1 = write, 0 = read
 	reg [31:0] data_in, data_in_next;   // data from a read
 	wire [31:0] data_out; // data for a write
@@ -119,7 +119,7 @@ always @(posedge clk100 or posedge rst_p) begin
 		cnt_seg <= 0;
 
 		memory_test_ctl <= MEMORY_TEST_START;
-		addr <= 20'd0;
+		addr <= 0;
 		rw <= 0;
 		data_in <= 0;
 		enable <= 0;
@@ -195,22 +195,20 @@ always @(*) begin
 			end
 			
 			MEMORY_TEST_WAIT: begin
-if ( ready ) begin
-
-				rw_next = 0;
-				enable_next = 0;
 				if ( ready ) begin
-					memory_test_ctl_next = MEMORY_TEST_LOOP;
+					rw_next = 0;
+					enable_next = 0;
+					if ( ready ) begin
+						memory_test_ctl_next = MEMORY_TEST_LOOP;
+					end
 				end
-end
 			end
 			
 			MEMORY_TEST_LOOP: begin
-if ( ready ) begin
-
-				enable_next = 1;
-				memory_test_ctl_next = MEMORY_TEST_CHECK;
-end
+				if ( ready ) begin
+					enable_next = 1;
+					memory_test_ctl_next = MEMORY_TEST_CHECK;
+				end
 			end
 				
 			MEMORY_TEST_CHECK: begin
@@ -229,11 +227,12 @@ end
 						enable_next = 0;
 						data_tmp_next = data_tmp + 7'd1;
 
-						if (addr == 88606) begin
+						if (addr ==  8388608-1) begin
 							memory_test_ctl_next = MEMORY_TEST_FINISHED;
+							addr_next = 0;
 						end
 						else begin
-							addr_next = addr + 1;
+							addr_next = addr + 23'd1;
 							memory_test_ctl_next = MEMORY_TEST_START;
 						end
 					end
@@ -241,6 +240,8 @@ end
 			end
 			MEMORY_TEST_FINISHED: begin
 				debug11q_next = 1;
+				led2_debug_next = ~led1_debug; //acende
+
 			end
 
 			MEMORY_TEST_FAULT: begin
