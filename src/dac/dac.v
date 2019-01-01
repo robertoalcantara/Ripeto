@@ -88,7 +88,7 @@ module dac(
 		.bus_control(dac_bus_control), 
 		.bus_active(dac_bus_active), 
 		.missed_ack(dac_missed_ack), 
-		.prescale(15'd250), 
+		.prescale(15'd40), 
 		.stop_on_idle(1'b1)
 		);
 
@@ -149,7 +149,7 @@ module dac(
 						dac_cmd_start <= 1;
 						dac_data_in_last <= 0;
 						dac_cmd_address <= MCP47FEB_ID;
-						dac_ctl <= 2;
+						dac_ctl <= DAC_CMD;
 					end
 				end
 				
@@ -158,28 +158,28 @@ module dac(
 						dac_data_in_last <= 0;
 						dac_data_in_valid <= 1;
 						dac_data_in <= {DAC1_REG, CMD_WRITE, 1'b0};
-						if (dac_data_in_ready) dac_ctl <= 3;
+						if (dac_data_in_ready) dac_ctl <= DAC_VL1;
 				end
 				
 				DAC_VL1: begin
 						dac_data_in_last <= 0;
 						dac_data_in_valid <= 1;
 						dac_data_in <= ch_value[15:8]; //{4'b0000, ch_value[11:8]};
-						if (dac_data_in_ready) dac_ctl <= 4;
+						if (dac_data_in_ready) dac_ctl <= DAC_VL2;
 				end
 		
 				DAC_VL2: begin
 						dac_data_in_last <= 1;
 						dac_data_in_valid <= 1;
 						dac_data_in <= ch_value[7:0];
-						if (!dac_busy) dac_ctl <= 5;
+						if (!dac_busy) dac_ctl <= DAC_STOP;
 				end
 							
 				DAC_STOP: begin
 					dac_data_in_last <= 0;
 					dac_cmd_valid <= 0;			
 					dac_cmd_write_multiple <= 0;
-					dac_ctl <= 1;
+					dac_ctl <= DAC_START;
 				end
 				
 				default: begin

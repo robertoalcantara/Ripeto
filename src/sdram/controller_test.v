@@ -60,6 +60,18 @@ module controller_test(
         .CLK_IN1(clk), // IN
         .CLK_OUT1(clk100) // OUT
     );
+	
+	reg [0:12] addra;
+	reg [0:47] dina;
+	wire [0:47] douta;
+	reg wea;
+	blk_mem_48x13 mem18x13 (
+		.addra(addra),
+		.dina(dina),
+		.douta(douta),
+		.wea(wea),
+		.clka(clk100)
+	);
 
 	/*wire clk_dac;
 	clk_divider #(.CLK_DIV(1000)) clk_div_dac (
@@ -223,9 +235,6 @@ module controller_test(
 	assign sda_i = dac_sda;
 	assign dac_sda = sda_o ? 1'bz : 1'b0;*/
 
-
-
-
 	reg [15:0] dac_value;
 	// Instantiate the module
 	dac dac1 (
@@ -235,7 +244,6 @@ module controller_test(
 		.i2c_scl_pin(dac_scl), 
 		.i2c_sda_pin(dac_sda)
 		);
-
 
 //debug
 (* IOB = "TRUE" *)
@@ -571,19 +579,24 @@ always @(posedge clk100 or posedge rst_p) begin
 		endcase*/		
 	
 		dac_cnt <= dac_cnt + 15'd1;
-		if (dac_cnt == (32'd25000)/2) begin
+		debug7q <= ~debug7q; //led pulse
+
+		if (dac_cnt == 32'd300) begin
 			dac_cnt <= 0;
-			dac_value <= 512;//dac_value + 50;
+			if (debug7q) 
+				dac_value <= 4093;
+			else
+				dac_value <= 0;
+			end
+			
 		end
-		
-		
-	    cnt_seg <= cnt_seg + 32'd1;
-		if (cnt_seg == (32'd25000000)/2) begin 
-			cnt_seg <= 0;
-			led1_debug <= ~led1_debug; //led pulse
-		end
+			
+	 //  cnt_seg <= cnt_seg + 32'd1;
+		//if (cnt_seg == (32'd25000000)/2) begin 
+			//cnt_seg <= 0;
+			//led1_debug <= ~led1_debug; //led pulse
+		//end
 	
-	end
 end
 
 	

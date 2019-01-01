@@ -38,6 +38,10 @@ module meter(
     );
 
 
+	reg [11:0] data_out_v, data_out_v_next;
+	reg [11:0] data_out_i, data_out_i_next;
+	reg [22:0] data_out_p, data_out_p_next;
+
 	mult_12_constV MULT_CONST_V ( //const 805
 		.a(data_out_v), //12bit
 		.p(data_v) //22bit   
@@ -49,8 +53,8 @@ module meter(
 	wire [11:0] i0_data_out;
 	wire v0_new_data;
 	
-	parameter CLK_DIV = 0;
-	parameter NUM_SAMPLES_AVERAGE = 3; //2^n 
+	parameter CLK_DIV = 2;
+	parameter NUM_SAMPLES_AVERAGE = 2; //2^n 
 	
 		
 	mcp3201_spi #(.CLK_DIV(CLK_DIV)) SPI0_V ( 
@@ -92,10 +96,6 @@ parameter SAMPLES_AVERAGE = 3;
 
 reg [7:0] state_ctl, state_ctl_next;
 
-reg [11:0] data_out_v, data_out_v_next;
-reg [11:0] data_out_i, data_out_i_next;
-reg [22:0] data_out_p, data_out_p_next;
-
 reg [11:0] tmp_vout, tmp_vout_next;
 reg [11:0] tmp_iout, tmp_iout_next;
 
@@ -103,31 +103,20 @@ reg [23:0] acum_vout, acum_vout_next;
 reg [23:0] acum_iout, acum_iout_next;
 
 
-
 reg [9:0] samples_counter, samples_counter_next;
 
-always @(posedge clk or rst) begin
+always @(posedge clk or posedge rst) begin
 	if (rst) begin
 		state_ctl <= 8'd0;
-		state_ctl_next <= 8'd0;
 		start_mcp <= 0;
-		start_mcp_next <= 0;
 		data_out_v <= 0;
-		data_out_v_next <= 0;
 		data_out_i <= 0;
-		data_out_i_next <= 0;
 		data_out_p <= 0;
-		data_out_p_next <= 0;
 		samples_counter <= 0;
-		samples_counter_next <= 0;		
 		tmp_vout <= 0;
-		tmp_vout_next <= 0;
 		tmp_iout <= 0;
-		tmp_iout_next <= 0;
 		acum_vout <= 0;
-		acum_vout_next <= 0;
 		acum_iout <= 0;
-		acum_iout_next <= 0;
 		
 	end
 	else begin
