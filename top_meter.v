@@ -167,7 +167,7 @@ always @(*) begin
 				
 				if ( tx_ready ) begin
 				  tx_en_next = 1;
-				  tx_byte = 8'h55; //meter_data_v[7:0];
+				  tx_byte = meter_data_i[7:0];
 				end
 
 			end

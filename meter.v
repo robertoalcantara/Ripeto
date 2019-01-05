@@ -53,8 +53,8 @@ module meter(
 	wire [11:0] i0_data_out;
 	wire v0_new_data;
 	
-	parameter CLK_DIV = 2;
-	parameter NUM_SAMPLES_AVERAGE = 2; //2^n 
+	parameter CLK_DIV = 51;
+	parameter NUM_SAMPLES_AVERAGE = 4; //2^n 
 	
 		
 	mcp3201_spi #(.CLK_DIV(CLK_DIV)) SPI0_V ( 
@@ -127,7 +127,7 @@ always @(posedge clk or posedge rst) begin
 		data_out_p <= data_out_p_next;
 		samples_counter <= samples_counter_next;
 		tmp_vout <= tmp_vout_next;
-		tmp_iout_next <= tmp_iout_next;
+		tmp_iout <= tmp_iout_next;
 		acum_vout <= acum_vout_next;
 		acum_iout <= acum_iout_next;	
 		
@@ -163,7 +163,7 @@ always @(*) begin
 			end
 			
 			SPI_STORE: begin
-				tmp_vout_next = 12'd500;//v0_data_out[11:0];
+				tmp_vout_next = v0_data_out[11:0];
 				tmp_iout_next = i0_data_out[11:0];
 				if (busy_mcp==0) begin
 					state_ctl_next = SAMPLES_AVERAGE;
@@ -176,8 +176,8 @@ always @(*) begin
 					//finalizou
 					state_ctl_next = SPI_IDLE;
 					samples_counter_next = 0;
-					data_out_v_next = acum_vout >> SAMPLES_AVERAGE;
-					data_out_i_next = acum_iout >> SAMPLES_AVERAGE;
+					data_out_v_next = acum_vout >> NUM_SAMPLES_AVERAGE;
+					data_out_i_next = acum_iout >> NUM_SAMPLES_AVERAGE;
 					//data_out_p_next = acum_out_v_next * data_out_i_next;
 					samples_counter_next = 0;
 					acum_vout_next = 0;

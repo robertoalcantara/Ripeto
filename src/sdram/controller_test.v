@@ -189,7 +189,7 @@ always @(posedge clk100 or posedge rst_p) begin
 		led2_mode <= led2_mode_next;
 		led2_fast <= led2_fast_next;
 		
-		if (sw2_state) memory_test_ctl <= MEMORY_TEST_START;
+		if (sw2_state) memory_test_ctl <= MEMORY_TEST_START; //inicia o teste ao pressionar o SW2
 
 	end
 end
@@ -218,7 +218,6 @@ always @(*) begin
 				
 		case (memory_test_ctl) 
 			MEMORY_TEST_IDLE: begin
-				tx_en_next = 0; //debug
 				led2_mode_next = 1;	led2_fast_next = 1;
 			end
 			
@@ -228,6 +227,8 @@ always @(*) begin
 					rw_next = 1;
 					enable_next = 1;
 					memory_test_ctl_next = MEMORY_TEST_WAIT;
+					tx_en_next = 0; //debug
+
 				end
 			end
 			

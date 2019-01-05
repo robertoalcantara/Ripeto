@@ -4,14 +4,14 @@ NET "led1" LOC = T9;
 NET "led2" LOC = R9;
 NET "debug7" LOC = A14;
 NET "debug11" LOC = B12;
-NET "uart_tx_pin" LOC = C11;
+NET "uart_tx_pin" LOC = F13;
 NET "rst" LOC = R7;
-NET "spi0_miso" LOC = C6;
-NET "spi0_clkout" LOC = F7;
-NET "spi0_cs" LOC = D6;
-NET "spi1_miso" LOC = N5;  
-NET "spi1_clkout" LOC = P4; 
-NET "spi1_cs" LOC = P5;
+NET "spi0_miso" LOC = N8;
+NET "spi0_clkout" LOC = L7;
+NET "spi0_cs" LOC = P9;
+NET "spi1_miso" LOC = P6;  
+NET "spi1_clkout" LOC = P5; 
+NET "spi1_cs" LOC = M7;
 
 
 # PlanAhead Generated IO constraints 
