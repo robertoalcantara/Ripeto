@@ -113,17 +113,18 @@ module controller_test(
 	reg [7:0] tx_byte, tx_byte_next;  
 	reg tx_en, tx_en_next;
 	wire tx_ready;
+	wire tx_active;
+	assign tx_ready = !tx_active;
 	
-	uart UART0(
-		.clk(clk100),
-		.rst(rst_p),
-		.tx_byte(tx_byte),
-		.tx_en(tx_en),
-		.tx_ready(tx_ready),
-		.tx_pin(uart_tx_pin)
-    );
+	uart_tx UART0(
+		.i_Clock(clk100),
+		.i_Tx_Byte(tx_byte),
+		.i_Tx_DV(tx_en),
+		.o_Tx_Active(tx_active),
+		.o_Tx_Serial(uart_tx_pin)
+    );	
 	
-  	
+	
 	reg[3:0] led1_mode, led1_mode_next;
 	reg led1_fast, led1_fast_next;
 	wire led1_busy;
@@ -180,7 +181,8 @@ parameter MEMORY_CLEANUP_FAULT = 6;
 
 
 reg [7:0] serial_dump_ctl, serial_dump_ctl_next;
-parameter SERIAL_DUMP_IDLE = 0; parameter SERIAL_DUMP_RUNNING =1; parameter SERIAL_DUMP_DONE = 2;
+parameter SERIAL_DUMP_IDLE = 0; parameter SERIAL_DUMP_SETUP=1;parameter SERIAL_DUMP_RUNNING =2; parameter SERIAL_DUMP_TX=3; 
+ parameter SERIAL_DUMP_DONE=4;
 
 
 always @(posedge clk100 or posedge rst_p) begin
@@ -190,6 +192,7 @@ always @(posedge clk100 or posedge rst_p) begin
 		state_main <= 0;
 		memory_test_ctl <= MEMORY_CLEANUP_IDLE;
 		sampling_ctl <= 0;
+		serial_dump_ctl <= 0;
 		
 		addr <= 0;
 		rw <= 0;
@@ -200,9 +203,7 @@ always @(posedge clk100 or posedge rst_p) begin
 		
 		tx_byte <= 0;
 		tx_en <= 0;
-		
-		serial_dump_ctl <= 0;
-		
+				
 		debug11q <= 0;
 		debug7q <= 0;
 
@@ -215,7 +216,6 @@ always @(posedge clk100 or posedge rst_p) begin
 	
 		tx_byte <= tx_byte_next;
 		tx_en <= tx_en_next;
-		serial_dump_ctl <= serial_dump_ctl_next;
 	
 		debug11q <= debug11q_next;
 		debug7q <= debug7q_next;
@@ -230,6 +230,7 @@ always @(posedge clk100 or posedge rst_p) begin
 		state_main <= state_main_next;
 		memory_test_ctl <= memory_test_ctl_next;
 		sampling_ctl <= sampling_ctl_next;
+		serial_dump_ctl <= serial_dump_ctl_next;
 		
 		
 		led1_mode <= led1_mode_next;
@@ -254,6 +255,7 @@ always @(*) begin
 	state_main_next = state_main;
 	memory_test_ctl_next = memory_test_ctl;
 	sampling_ctl_next = sampling_ctl;
+	serial_dump_ctl_next = serial_dump_ctl;
 
 	led1_mode_next = led1_mode;
 	led1_fast_next = led1_fast;
@@ -262,7 +264,6 @@ always @(*) begin
 
 	tx_byte_next = tx_byte;
 	tx_en_next = tx_en;
-	serial_dump_ctl_next <= serial_dump_ctl;
 
 	debug11q_next = debug11q;
 	debug7q_next = debug7q;
@@ -376,22 +377,71 @@ always @(*) begin
 							addr_next = addr + 23'd1;
 							sampling_ctl_next = SAMPLER_SAMPLING_SYNC;
 							amost2_start_next = 1;
-							debug7q_next = ~debug7q; //DEBUG
 						end
 					end
 				end
 			
 				SAMPLER_SAMPLING_DONE: begin
 					led2_mode_next = 2; led2_fast_next = 0;
+					if (sw2_state) begin
+						state_main_next = MAIN_DUMPING;
+						serial_dump_ctl_next = SERIAL_DUMP_SETUP;
+
+					end
 				end
+				
 			endcase //case (sampling_ctl)
 		end // MAIN_SAMPLING
+	
+
+		MAIN_DUMPING: begin            /****  D U M P   S E R I A L   *****/
+			case (serial_dump_ctl)
+				SERIAL_DUMP_IDLE: begin
+				end
+				SERIAL_DUMP_SETUP: begin
+					led2_mode_next = 3; led2_fast_next = 0;
+					addr_next = 0;
+					rw_next = 0;
+					enable_next = 0;
+					serial_dump_ctl_next = SERIAL_DUMP_RUNNING;
+				end
+	
+				SERIAL_DUMP_RUNNING: begin
+					if (tx_ready) begin
+						tx_byte_next = addr[15:8];
+						tx_en_next = 1;
+						serial_dump_ctl_next = SERIAL_DUMP_TX;
+					end
+				end
+				
+				SERIAL_DUMP_TX: begin
+					tx_en_next = 0;
+					if (addr == 8388608-1) begin
+						serial_dump_ctl_next = SERIAL_DUMP_DONE;
+						addr_next = 0;
+					end
+					else begin
+						addr_next = addr + 23'd1;
+						serial_dump_ctl_next = SERIAL_DUMP_RUNNING;
+						debug7q_next = ~debug7q; //DEBUG
+
+					end
+
+				end
+				SERIAL_DUMP_DONE: begin
+						led2_mode_next = 5; led2_fast_next = 0;
+				end
+			
+			
+			endcase //case (serial_dump_ctl)
+
+		end//MAIN_DUMPING
 	
 		
 	endcase //case (state_main)
 end
 
-	assign debug7 = debug7q;
+	assign debug7 = tx_ready;
 	assign debug11 = debug11q;
 	
 endmodule
