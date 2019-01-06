@@ -161,10 +161,6 @@ module controller_test(
 (* IOB = "TRUE" *)
 reg debug7q, debug11q;
 reg debug7q_next, debug11q_next;
-reg [31:0] sample_cnt, sample_cnt_next;
-reg sample_clk, sample_clk_next;
-parameter SAMPLE_CNT_CLK = 7911;
-
 
 reg [7:0] state_main, state_main_next;
 parameter MAIN_IDLE = 0;  parameter MAIN_MEMORY_CLEANUP = 1;
@@ -199,8 +195,6 @@ always @(posedge clk100 or posedge rst_p) begin
 		
 		debug11q <= 0;
 		debug7q <= 0;
-		sample_cnt <= 0;
-		sample_clk <= 0;
 
 		led1_mode <= 1;
 		led1_fast <= 1;
@@ -214,9 +208,6 @@ always @(posedge clk100 or posedge rst_p) begin
 	
 		debug11q <= debug11q_next;
 		debug7q <= debug7q_next;
-	
-		sample_cnt <= sample_cnt_next;
-		sample_clk <= sample_clk_next;
 	
 		addr <= addr_next;
 		rw <= rw_next;
@@ -264,17 +255,6 @@ always @(*) begin
 		
 		debug11q_next = debug11q;
 		debug7q_next = debug7q;
-		
-		sample_cnt_next = sample_cnt;
-		sample_clk_next = sample_clk;
-		
-		if (sample_cnt ==  SAMPLE_CNT_CLK) begin
-			sample_cnt_next = 0;
-			sample_clk_next = ~sample_clk_next; 
-		end
-		else begin
-			sample_cnt_next = sample_cnt+1;
-		end
 		
 		
 	
@@ -358,18 +338,14 @@ always @(*) begin
 			end //main waiting sample
 			
 			MAIN_SAMPLING_SYNC: begin
-				if (sample_clk) begin
-					sample_clk_next = 0;
 					amost2_start_next = 1;
 					state_main_next = MAIN_SAMPLING;
-				end
 			end
 			
 			MAIN_SAMPLING: begin
 				led2_mode_next = 3; led2_fast_next = 1;
 				amost2_start_next = 0;
 				if (sw2_state) state_main_next = MAIN_SAMPLING_DONE;
-
 
 				if (amost2_busy==0) begin
 
@@ -396,10 +372,9 @@ always @(*) begin
 						state_main_next = MAIN_SAMPLING_SYNC;
 						amost2_start_next = 1;
 						debug7q_next = ~debug7q; //DEBUG
-
-
 					end
 				end
+
 			end
 			
 			MAIN_SAMPLING_DONE: begin
