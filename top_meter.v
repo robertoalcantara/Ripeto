@@ -170,6 +170,13 @@ always @(*) begin
 			state_ctl_next = IDLE;
 		end
 	endcase
+	
+	
+	
+	
+
+	
+	
 
 end
 
@@ -185,3 +192,9 @@ end
 
 
 endmodule
+
+
+
+
+
+
