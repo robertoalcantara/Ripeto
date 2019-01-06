@@ -88,7 +88,7 @@ module controller_test(
 	wire amost2_busy;
 	wire [11:0] amost2_data_v;
 	wire [11:0] amost2_data_i;  
-	wire [7:0] amost2_checksum;
+	wire [6:0] amost2_checksum;
 	assign amost2_checksum = amost2_data_v[11:4] + {amost2_data_v[3:0],amost2_data_i[11:8]} + amost2_data_i[7:0]; 
 
 	meter AMOST2(
@@ -179,10 +179,10 @@ parameter MEMORY_CLEANUP_WAIT = 2;  parameter MEMORY_CLEANUP_LOOP  = 3;
 parameter MEMORY_CLEANUP_CHECK = 4;  parameter MEMORY_CLEANUP_FINISHED = 5;
 parameter MEMORY_CLEANUP_FAULT = 6;
 
-
 reg [7:0] serial_dump_ctl, serial_dump_ctl_next;
-parameter SERIAL_DUMP_IDLE = 0; parameter SERIAL_DUMP_SETUP=1;parameter SERIAL_DUMP_RUNNING =2; parameter SERIAL_DUMP_TX=3; 
- parameter SERIAL_DUMP_DONE=4;
+parameter SERIAL_DUMP_IDLE = 0; parameter SERIAL_DUMP_SETUP=1;parameter SERIAL_DUMP_RUNNING =2; parameter SERIAL_DUMP_RUNNING1 =3;  
+parameter SERIAL_DUMP_RUNNING2 =4; parameter SERIAL_DUMP_RUNNING3 =5;  parameter SERIAL_DUMP_RUNNING4=6; parameter SERIAL_DUMP_RUNNING5=7; 
+parameter SERIAL_DUMP_TX=8; parameter SERIAL_DUMP_DONE=9;
 
 
 always @(posedge clk100 or posedge rst_p) begin
@@ -402,17 +402,64 @@ always @(*) begin
 					led2_mode_next = 3; led2_fast_next = 0;
 					addr_next = 0;
 					rw_next = 0;
-					enable_next = 0;
+					enable_next = 1;
 					serial_dump_ctl_next = SERIAL_DUMP_RUNNING;
 				end
-	
+				
 				SERIAL_DUMP_RUNNING: begin
 					if (tx_ready) begin
-						tx_byte_next = addr[15:8];
+						tx_byte_next = 8'h0A;
+						tx_en_next = 1;
+						serial_dump_ctl_next = SERIAL_DUMP_RUNNING1;
+					end
+				end				
+	
+				SERIAL_DUMP_RUNNING1: begin
+					if (tx_ready && out_valid) begin
+						if (data_out[0]!=1) begin
+							serial_dump_ctl_next = SERIAL_DUMP_DONE; //valid register
+							tx_en_next = 0;
+						end
+						else begin
+							tx_byte_next = {4'b0000, data_out[31:28]};
+							tx_en_next = 1;
+							serial_dump_ctl_next = SERIAL_DUMP_RUNNING2;
+						end
+					end
+				end
+				SERIAL_DUMP_RUNNING2: begin
+					tx_en_next = 0;
+					if (tx_ready && out_valid) begin
+						tx_byte_next = data_out[27:20];
+						tx_en_next = 1;
+						serial_dump_ctl_next = SERIAL_DUMP_RUNNING3;
+					end
+				end					
+				SERIAL_DUMP_RUNNING3: begin
+					tx_en_next = 0;
+					if (tx_ready && out_valid) begin
+						tx_byte_next = {4'b0000, data_out[19:16]};
+						tx_en_next = 1;
+						serial_dump_ctl_next = SERIAL_DUMP_RUNNING4;
+					end
+				end	
+				SERIAL_DUMP_RUNNING4: begin
+					tx_en_next = 0;
+					if (tx_ready && out_valid) begin
+						tx_byte_next = data_out[15:8];
+						tx_en_next = 1;
+						serial_dump_ctl_next = SERIAL_DUMP_RUNNING5;
+					end
+				end
+				SERIAL_DUMP_RUNNING5: begin
+					tx_en_next = 0;
+					if (tx_ready && out_valid) begin
+						tx_byte_next = {1'b0, data_out[7:1]};
 						tx_en_next = 1;
 						serial_dump_ctl_next = SERIAL_DUMP_TX;
 					end
 				end
+
 				
 				SERIAL_DUMP_TX: begin
 					tx_en_next = 0;
