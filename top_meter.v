@@ -65,10 +65,8 @@ module top_meter(
   reg meter_start;
   reg meter_start_next;	
   wire meter_busy;
-  wire [21:0] meter_data_v;
-  wire [21:0] meter_data_i;
-  wire [35:0] meter_data_p;
-  
+  wire [11:0] meter_data_v;
+  wire [11:0] meter_data_i;  
 
   meter METER0(
 	 .rst(rst_p),
@@ -77,7 +75,6 @@ module top_meter(
     .busy(meter_busy),
     .data_v(meter_data_v),
     .data_i(meter_data_i),
-    .data_p(meter_data_p),
 		
 	.voltage0_miso_pin(spi1_miso), 
 	.voltage0_clkout_pin(spi1_clkout),
@@ -99,7 +96,6 @@ reg [3:0] state_ctl, state_ctl_next;
 
 reg [21:0] meter0_v, meter0_v_next;
 reg [21:0] meter0_i, meter0_i_next;
-reg [35:0] meter0_p, meter0_p_next;
 
 reg [31:0] led1_counter, led1_counter_next;
 
@@ -111,7 +107,6 @@ always @(posedge clk100 or posedge rst_p) begin
 		led2_debug <= 0;
 		meter0_v <= 0;
 		meter0_i <= 0;
-		meter0_p <= 0;
 		led1_counter <= 0;
 		tx_en <= 0;
 	end
@@ -120,7 +115,6 @@ always @(posedge clk100 or posedge rst_p) begin
 		meter_start <= meter_start_next;
 		meter0_v <= meter0_v_next;
 		meter0_i <= meter0_i_next;
-		meter0_p <= meter0_p_next;
 		
 		tx_en <= tx_en_next;
 		
@@ -138,7 +132,6 @@ always @(*) begin
 	meter_start_next = meter_start;
 	meter0_v_next = meter0_v;
 	meter0_i_next = meter0_i;
-	meter0_p_next = meter0_p;
 	led1_counter_next = led1_counter;
 	tx_en_next = tx_en;
 	
@@ -163,9 +156,8 @@ always @(*) begin
 				state_ctl_next = DONE;
 				meter0_v_next = meter_data_v;
 				meter0_i_next = meter_data_i;
-				meter0_p_next = meter_data_p;
 				
-				if ( tx_ready ) begin
+				if ( tx_ready ) begin//debug
 				  tx_en_next = 1;
 				  tx_byte = meter_data_i[7:0];
 				end
@@ -187,7 +179,7 @@ end
 	
 	assign led1 = led1_debug;
 	assign led2 =  led2_debug;	
-	assign debug7 = tx_en;
+	assign debug7 = meter_busy;
 	assign debug11 = debug11q;
 	
 

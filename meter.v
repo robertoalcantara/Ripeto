@@ -23,9 +23,8 @@ module meter(
     input wire clk,
     input wire start,
     output wire busy,
-    output wire [21:0] data_v,
-    output wire [21:0] data_i,
-    output wire [35:0] data_p,
+    output wire [11:0] data_v,
+    output wire [11:0] data_i,
 		
 	input  wire voltage0_miso_pin, 
 	output wire voltage0_clkout_pin,
@@ -40,12 +39,12 @@ module meter(
 
 	reg [11:0] data_out_v, data_out_v_next;
 	reg [11:0] data_out_i, data_out_i_next;
-	reg [22:0] data_out_p, data_out_p_next;
 
-	mult_12_constV MULT_CONST_V ( //const 805
-		.a(data_out_v), //12bit
-		.p(data_v) //22bit   
-	);
+
+	//mult_12_constV MULT_CONST_V ( //const 805
+	//	.a(data_out_v), //12bit
+	//	.p(data_v) //22bit   
+	//);
 		
 	reg start_mcp, start_mcp_next;
 	wire busy_mcp;
@@ -54,7 +53,7 @@ module meter(
 	wire v0_new_data;
 	
 	parameter CLK_DIV = 51;
-	parameter NUM_SAMPLES_AVERAGE = 4; //2^n 
+	parameter NUM_SAMPLES_AVERAGE = 3; //2^n 
 	
 		
 	mcp3201_spi #(.CLK_DIV(CLK_DIV)) SPI0_V ( 
@@ -85,9 +84,9 @@ module meter(
 
 
 
-assign busy = (state_ctl != 0);
+assign busy = (state_ctl != SPI_IDLE);
 assign data_i = data_out_i;
-assign data_p = data_out_p;
+assign data_v = data_out_v;
 
 parameter SPI_IDLE 		= 0;
 parameter SPI_RUNNING	= 1;
@@ -111,7 +110,6 @@ always @(posedge clk or posedge rst) begin
 		start_mcp <= 0;
 		data_out_v <= 0;
 		data_out_i <= 0;
-		data_out_p <= 0;
 		samples_counter <= 0;
 		tmp_vout <= 0;
 		tmp_iout <= 0;
@@ -124,7 +122,6 @@ always @(posedge clk or posedge rst) begin
 		start_mcp <= start_mcp_next;
 		data_out_v <= data_out_v_next;
 		data_out_i <= data_out_i_next;
-		data_out_p <= data_out_p_next;
 		samples_counter <= samples_counter_next;
 		tmp_vout <= tmp_vout_next;
 		tmp_iout <= tmp_iout_next;
@@ -139,7 +136,6 @@ always @(*) begin
 	start_mcp_next = start_mcp;
 	data_out_v_next = data_out_v;
 	data_out_i_next = data_out_i;
-	data_out_p_next = data_out_p;
 	samples_counter_next = samples_counter;
 	tmp_vout_next = tmp_vout;
 	tmp_iout_next = tmp_iout;
@@ -178,7 +174,6 @@ always @(*) begin
 					samples_counter_next = 0;
 					data_out_v_next = acum_vout >> NUM_SAMPLES_AVERAGE;
 					data_out_i_next = acum_iout >> NUM_SAMPLES_AVERAGE;
-					//data_out_p_next = acum_out_v_next * data_out_i_next;
 					samples_counter_next = 0;
 					acum_vout_next = 0;
 					acum_iout_next = 0;
