@@ -407,24 +407,27 @@ always @(*) begin
 				end
 				
 				SERIAL_DUMP_RUNNING: begin
-					if (tx_ready) begin
-						tx_byte_next = 8'h0A;
-						tx_en_next = 1;
-						serial_dump_ctl_next = SERIAL_DUMP_RUNNING1;
+					if ( out_valid ) begin	
+						if (data_out[0]!=1) begin
+								serial_dump_ctl_next = SERIAL_DUMP_DONE; //valid register
+								tx_en_next = 0;						
+						end
+						else begin
+							if (tx_ready) begin
+								tx_byte_next = 8'h0A;
+								tx_en_next = 1;
+								serial_dump_ctl_next = SERIAL_DUMP_RUNNING1;
+							end
+						end
 					end
 				end				
 	
 				SERIAL_DUMP_RUNNING1: begin
+					tx_en_next = 0;
 					if (tx_ready && out_valid) begin
-						if (data_out[0]!=1) begin
-							serial_dump_ctl_next = SERIAL_DUMP_DONE; //valid register
-							tx_en_next = 0;
-						end
-						else begin
-							tx_byte_next = {4'b0000, data_out[31:28]};
-							tx_en_next = 1;
-							serial_dump_ctl_next = SERIAL_DUMP_RUNNING2;
-						end
+						tx_byte_next = {4'b0000, data_out[31:28]};
+						tx_en_next = 1;
+						serial_dump_ctl_next = SERIAL_DUMP_RUNNING2;
 					end
 				end
 				SERIAL_DUMP_RUNNING2: begin
