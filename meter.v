@@ -53,7 +53,7 @@ module meter(
 	wire v0_new_data;
 	
 	parameter CLK_DIV = 51;
-	parameter NUM_SAMPLES_AVERAGE = 3; //2^n 
+	parameter NUM_SAMPLES_AVERAGE = 3; //3 //2^n 
 	
 		
 	mcp3201_spi #(.CLK_DIV(CLK_DIV)) SPI0_V ( 

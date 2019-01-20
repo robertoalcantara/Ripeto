@@ -21,6 +21,7 @@
 module dac(
     input wire clk,
     input wire rst,
+	 input wire enable,
     input wire [15:0] ch_value,
 	output wire busy,
     inout wire i2c_scl_pin,
@@ -88,7 +89,7 @@ module dac(
 		.bus_control(dac_bus_control), 
 		.bus_active(dac_bus_active), 
 		.missed_ack(dac_missed_ack), 
-		.prescale(15'd40), 
+		.prescale(15'd200), 
 		.stop_on_idle(1'b1)
 		);
 
@@ -142,7 +143,7 @@ module dac(
 				end
 				
 				DAC_START: begin
-					if ( dac_cmd_ready ) begin
+					if ( dac_cmd_ready && enable) begin
 						dac_cmd_write_multiple <= 1;
 						dac_cmd_valid <= 1;
 						dac_cmd_stop <= 1;

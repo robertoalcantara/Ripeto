@@ -51,6 +51,12 @@ module controller_test(
 	output spi1_clkout,
 	output spi1_cs,
 	
+	output dac_lat_pin, //DAC
+	inout dac_scl_pin, 
+	inout dac_sda_pin, 
+	output dac_up1_pin,
+	output dac_up2_pin,	
+	
 	input [15:0] fpin //logic analizer
 	
 );
@@ -177,7 +183,28 @@ module controller_test(
     .PB_state(),  // 1 as long as the push-button is active (down)
     .PB_down(),  // 1 for one clock cycle when the push-button goes down (i.e. just pushed)
     .PB_up(sw2_state)   // 1 for one clock cycle when the push-button goes up (i.e. just released)
-);	
+	 );
+
+	// Instantiate the module
+	reg [11:0] dac_value;
+	wire dac_busy;
+	wire clk_dac;
+	reg dac_enable, dac_enable_next;
+	dac DAC (
+		.clk(clk100), 
+		.rst(rst_p), 
+		.enable(dac_enable),
+		.ch_value(dac_value), 
+		.busy(dac_busy), 
+		.i2c_scl_pin(dac_scl_pin), 
+		.i2c_sda_pin(dac_sda_pin)
+		);
+		
+	assign dac_lat_pin = 0;
+	assign dac_up1_pin = 1;
+	assign dac_up2_pin = 1;	
+	
+
 
 (* IOB = "TRUE" *)
 reg debug7q, debug11q;
@@ -240,7 +267,9 @@ always @(posedge clk100 or posedge rst_p) begin
 		led1_mode <= 0;
 		led1_fast <= 0;
 		led2_mode <= 0;
-		led2_fast <= 0;		
+		led2_fast <= 0;
+
+		dac_enable <= 0;		
 	end 
 	else begin
 	
@@ -263,6 +292,8 @@ always @(posedge clk100 or posedge rst_p) begin
 		sampling_ctl <= sampling_ctl_next;
 		sampling_logic_ctl <= sampling_logic_ctl_next;
 		serial_dump_ctl <= serial_dump_ctl_next;
+	
+		dac_enable <= dac_enable_next;
 	
 		logic_event_saved <= logic_event_saved_next;
 		logic_pack <= logic_pack_next;	
@@ -304,6 +335,8 @@ always @(*) begin
 	tx_en_next = tx_en;
 	dump_type_next = dump_type;
 
+	dac_enable_next = dac_enable;
+
 	debug11q_next = debug11q;
 	debug7q_next = debug7q;
 
@@ -312,9 +345,13 @@ always @(*) begin
 		MAIN_IDLE: begin
 			led1_mode_next = 1; led1_fast_next = 0;
 			led2_mode_next = 1; led2_fast_next = 0;
+			dac_value = 0;
 			if (sw2_state)	begin
 				state_main_next = MAIN_MEMORY_CLEANUP;
 				memory_test_ctl_next = MEMORY_CLEANUP_START;
+				dac_value = 4095;
+				dac_enable_next = 1;
+
 			end
 		end //MAIN_IDLE
 			
