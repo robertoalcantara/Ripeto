@@ -42,6 +42,7 @@ module controller_test(
 	output debug11,
 	
 	output uart_tx_pin,
+	input uart_rx_pin,
 
 	input spi0_miso, //AMOST2 U3 current
 	output spi0_clkout,
@@ -57,7 +58,10 @@ module controller_test(
 	output dac_up1_pin,
 	output dac_up2_pin,	
 	
-	input [15:0] fpin //logic analizer
+	input [15:0] fpin, //logic analizer
+	
+	input replay_on_pin,
+	output replay_up_pin
 	
 );
 
@@ -66,10 +70,11 @@ module controller_test(
         .CLK_IN1(clk), // IN
         .CLK_OUT1(clk100) // OUT
     );
-
 	
 	assign rst_p = ~rst;
-	
+
+	assign replay_up_pin = 1;
+
 	//memory user interface
 	reg [22:0] addr, addr_next;      // address to read/write
 	reg rw, rw_next;               // 1 = write, 0 = read
@@ -141,14 +146,24 @@ module controller_test(
 	wire tx_active;
 	assign tx_ready = !tx_active;
 	
-	uart_tx UART0(
+	uart_tx UARTTX0(
 		.i_Clock(clk100),
 		.i_Tx_Byte(tx_byte),
 		.i_Tx_DV(tx_en),
 		.o_Tx_Active(tx_active),
 		.o_Tx_Serial(uart_tx_pin)
     );	
-	
+	 
+	wire rx_dv;
+	wire [7:0] rx_byte;
+	uart_rx UARTRX0(
+		.i_Clock(clk100),
+		.o_Rx_DV(rx_dv),
+		.o_Rx_Byte(rx_byte),
+		.i_Rx_Serial(uart_rx_pin),
+		.teste(debug7)
+	);
+	 
 	
 	reg[3:0] led1_mode, led1_mode_next;
 	reg led1_fast, led1_fast_next;
@@ -186,7 +201,7 @@ module controller_test(
 	 );
 
 	// Instantiate the module
-	reg [11:0] dac_value;
+	reg [11:0] dac_value, dac_value_next;
 	wire dac_busy;
 	wire clk_dac;
 	reg dac_enable, dac_enable_next;
@@ -212,7 +227,7 @@ reg debug7q_next, debug11q_next;
 
 reg [7:0] state_main, state_main_next;
 parameter MAIN_IDLE = 0;  parameter MAIN_MEMORY_CLEANUP = 1;
-parameter MAIN_SAMPLING = 2; parameter MAIN_DUMPING = 3;
+parameter MAIN_SAMPLING = 2; parameter MAIN_DUMPING = 3; parameter MAIN_LOAD_CURVE = 5;
 
 reg [7:0] sampling_ctl, sampling_ctl_next;
 parameter SAMPLER_IDLE = 0;
@@ -233,6 +248,10 @@ reg [7:0] serial_dump_ctl, serial_dump_ctl_next;
 parameter SERIAL_DUMP_IDLE = 0; parameter SERIAL_DUMP_SETUP=1;parameter SERIAL_DUMP_RUNNING =2; parameter SERIAL_DUMP_RUNNING1 =3;  
 parameter SERIAL_DUMP_RUNNING2 =4; parameter SERIAL_DUMP_RUNNING3 =5;  parameter SERIAL_DUMP_RUNNING4=6; parameter SERIAL_DUMP_RUNNING5=7; 
 parameter SERIAL_DUMP_TX=8; parameter SERIAL_DUMP_DONE=9;
+
+reg [7:0] load_curve_ctl, load_curve_ctl_next;
+parameter LOAD_CURVE_IDLE = 0; parameter LOAD_CURVE_WAIT_SOH=1; parameter LOAD_CURVE_WAIT_RX=2; parameter LOAD_CURVE_RECORD=3;
+parameter LOAD_CURVE_FINISHED = 6; parameter LOAD_CURVE_ERROR = 7;
 
 
 always @(posedge clk100 or posedge rst_p) begin
@@ -269,7 +288,8 @@ always @(posedge clk100 or posedge rst_p) begin
 		led2_mode <= 0;
 		led2_fast <= 0;
 
-		dac_enable <= 0;		
+		dac_enable <= 0;	
+		dac_value <= 0;		
 	end 
 	else begin
 	
@@ -294,6 +314,7 @@ always @(posedge clk100 or posedge rst_p) begin
 		serial_dump_ctl <= serial_dump_ctl_next;
 	
 		dac_enable <= dac_enable_next;
+		dac_value <= dac_value_next;
 	
 		logic_event_saved <= logic_event_saved_next;
 		logic_pack <= logic_pack_next;	
@@ -336,31 +357,46 @@ always @(*) begin
 	dump_type_next = dump_type;
 
 	dac_enable_next = dac_enable;
-
+	dac_value_next = dac_value;
+	
 	debug11q_next = debug11q;
 	debug7q_next = debug7q;
+
+	/* loop back test */
+	if (rx_dv) begin
+		tx_byte_next = rx_byte;
+		tx_en_next = 1;
+	end 
+	else tx_en_next = 0;
 
 	case (state_main)
 
 		MAIN_IDLE: begin
 			led1_mode_next = 1; led1_fast_next = 0;
 			led2_mode_next = 1; led2_fast_next = 0;
-			dac_value = 0;
-			if (sw2_state)	begin
+			
+			/*if (!dac_busy) begin //debug
+				dac_value_next = dac_value + 1;
+				dac_enable_next = 1;
+				state_main_next = MAIN_MEMORY_CLEANUP;//debuf
+			end debug debug */  
+			
+			/*if (sw2_state)	begin
 				state_main_next = MAIN_MEMORY_CLEANUP;
 				memory_test_ctl_next = MEMORY_CLEANUP_START;
-				dac_value = 4095;
-				dac_enable_next = 1;
-
-			end
+			end*/
 		end //MAIN_IDLE
 			
 		MAIN_MEMORY_CLEANUP: begin /***** M E M O R Y  C L E A N  UP ****/
+			//state_main_next = MAIN_IDLE;//debuf
+			//dac_enable_next = 0; //debugg
+			
 			case (memory_test_ctl) 
 				MEMORY_CLEANUP_IDLE: begin
 				end
 				MEMORY_CLEANUP_START: begin
 					led2_mode_next = 1;	led2_fast_next = 0;
+
 					if ( ready ) begin
 						data_in_next = 32'd0; //zero all memory
 						rw_next = 1;
@@ -405,9 +441,16 @@ always @(*) begin
 					addr_next = 0;
 					rw_next = 0;
 					data_in_next = 0;
-					enable_next = 0;						
-					state_main_next = MAIN_SAMPLING;
-					sampling_ctl_next = SAMPLER_WAITING_START;
+					enable_next = 0;	
+					
+					if ( ! replay_on_pin ) begin   //SAMPLING OR REPLAY
+						state_main_next = MAIN_SAMPLING;
+						sampling_ctl_next = SAMPLER_WAITING_START;
+					end
+					else begin
+						state_main_next = MAIN_LOAD_CURVE;
+					end
+					
 				end
 				MEMORY_CLEANUP_FAULT: begin
 					led2_mode_next = 15; led2_fast_next = 1;
@@ -620,8 +663,15 @@ always @(*) begin
 						led2_mode_next = 5; led2_fast_next = 0;
 				end
 			endcase //case (serial_dump_ctl)
-
 		end//MAIN_DUMPING
+		
+		
+										
+		MAIN_LOAD_CURVE: begin      /*  RECEIVE IV CURVE ON MEMORY */
+			led2_mode_next = 1; led2_fast_next = 1;
+		end		
+		
+		
 	endcase //case (state_main)
 	
 end
@@ -642,7 +692,7 @@ always @(*) begin
 end
 
 
-	assign debug7 = debug7q;
+	//assign debug7 = debug7q;
 	assign debug11 = debug11q;
 	
 endmodule
