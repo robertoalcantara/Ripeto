@@ -75,6 +75,12 @@ module controller_test(
 
 	assign replay_up_pin = 1;
 
+   //DRAM memory organization
+	parameter ADDR_LOW_LOG = 0;
+	parameter ADDR_HIGH_LOG = 4194303;
+	parameter ADDR_LOW_CURVE = ADDR_HIGH_LOG+1;
+	parameter ADDR_HIGH_CURVE = 8388607;
+
 	//memory user interface
 	reg [22:0] addr, addr_next;      // address to read/write
 	reg rw, rw_next;               // 1 = write, 0 = read
@@ -160,8 +166,7 @@ module controller_test(
 		.i_Clock(clk100),
 		.o_Rx_DV(rx_dv),
 		.o_Rx_Byte(rx_byte),
-		.i_Rx_Serial(uart_rx_pin),
-		.teste(debug7)
+		.i_Rx_Serial(uart_rx_pin)
 	);
 	 
 	
@@ -228,6 +233,7 @@ reg debug7q_next, debug11q_next;
 reg [7:0] state_main, state_main_next;
 parameter MAIN_IDLE = 0;  parameter MAIN_MEMORY_CLEANUP = 1;
 parameter MAIN_SAMPLING = 2; parameter MAIN_DUMPING = 3; parameter MAIN_LOAD_CURVE = 5;
+parameter MAIN_REPLAY = 6;
 
 reg [7:0] sampling_ctl, sampling_ctl_next;
 parameter SAMPLER_IDLE = 0;
@@ -250,9 +256,16 @@ parameter SERIAL_DUMP_RUNNING2 =4; parameter SERIAL_DUMP_RUNNING3 =5;  parameter
 parameter SERIAL_DUMP_TX=8; parameter SERIAL_DUMP_DONE=9;
 
 reg [7:0] load_curve_ctl, load_curve_ctl_next;
-parameter LOAD_CURVE_IDLE = 0; parameter LOAD_CURVE_WAIT_SOH=1; parameter LOAD_CURVE_WAIT_RX=2; parameter LOAD_CURVE_RECORD=3;
-parameter LOAD_CURVE_FINISHED = 6; parameter LOAD_CURVE_ERROR = 7;
+parameter LOAD_CURVE_IDLE = 0; parameter LOAD_CURVE_WAIT_SOH = 1;  parameter LOAD_CURVE_WAIT_RX=2; parameter LOAD_CURVE_RECORD=3;
+parameter LOAD_CURVE_CHECK=4; parameter LOAD_CURVE_RECORD2 =5; parameter LOAD_CURVE_FINISHED = 6; parameter LOAD_CURVE_ERROR = 7; 
 
+reg [7:0] replay_curve_ctl, replay_curve_ctl_next;
+parameter REPLAY_CURVE_IDLE=0; parameter REPLAY_CURVE_RUN=1;  parameter REPLAY_LOOKUP=3; parameter REPLAY_UPDATE=4;
+
+reg[7:0] load_curve_byte_count, load_curve_byte_count_next;
+reg[13:0] load_curve_reg_count, load_curve_reg_count_next;
+reg [7:0] load_byte [4:0];
+wire[7:0] load_checksum = load_byte[0] + load_byte[1] + load_byte[2] + load_byte[3]; 
 
 always @(posedge clk100 or posedge rst_p) begin
 
@@ -263,6 +276,8 @@ always @(posedge clk100 or posedge rst_p) begin
 		sampling_ctl <= 0;
 		serial_dump_ctl <= 0;
 		sampling_logic_ctl <= 0;
+		load_curve_ctl <= 0;
+		replay_curve_ctl <= 0;
 		
 		addr <= 0;
 		rw <= 0;
@@ -279,6 +294,9 @@ always @(posedge clk100 or posedge rst_p) begin
 		tx_byte <= 0;
 		tx_en <= 0;
 		dump_type <= 0;
+				
+		load_curve_byte_count <= 0;
+		load_curve_reg_count <= 0;
 				
 		debug11q <= 0;
 		debug7q <= 0;
@@ -312,7 +330,13 @@ always @(posedge clk100 or posedge rst_p) begin
 		sampling_ctl <= sampling_ctl_next;
 		sampling_logic_ctl <= sampling_logic_ctl_next;
 		serial_dump_ctl <= serial_dump_ctl_next;
+		load_curve_ctl <= load_curve_ctl_next;
+		replay_curve_ctl <= replay_curve_ctl_next;
+		
 	
+		load_curve_byte_count <= load_curve_byte_count_next;
+		load_curve_reg_count <= load_curve_reg_count_next;
+
 		dac_enable <= dac_enable_next;
 		dac_value <= dac_value_next;
 	
@@ -346,6 +370,12 @@ always @(*) begin
 	sampling_ctl_next = sampling_ctl;
 	sampling_logic_ctl_next = sampling_logic_ctl;
 	serial_dump_ctl_next = serial_dump_ctl;
+	load_curve_ctl_next = load_curve_ctl;
+	replay_curve_ctl_next = replay_curve_ctl;
+
+
+	load_curve_byte_count_next = load_curve_byte_count;
+	load_curve_reg_count_next = load_curve_reg_count;
 
 	led1_mode_next = led1_mode;
 	led1_fast_next = led1_fast;
@@ -362,33 +392,28 @@ always @(*) begin
 	debug11q_next = debug11q;
 	debug7q_next = debug7q;
 
-	/* loop back test */
+	/* //loop back serial test 
 	if (rx_dv) begin
 		tx_byte_next = rx_byte;
 		tx_en_next = 1;
 	end 
-	else tx_en_next = 0;
+	else tx_en_next = 0;*/
 
 	case (state_main)
 
 		MAIN_IDLE: begin
 			led1_mode_next = 1; led1_fast_next = 0;
 			led2_mode_next = 1; led2_fast_next = 0;
+	
 			
-			/*if (!dac_busy) begin //debug
-				dac_value_next = dac_value + 1;
-				dac_enable_next = 1;
-				state_main_next = MAIN_MEMORY_CLEANUP;//debuf
-			end debug debug */  
-			
-			/*if (sw2_state)	begin
+			if (sw2_state)	begin
 				state_main_next = MAIN_MEMORY_CLEANUP;
 				memory_test_ctl_next = MEMORY_CLEANUP_START;
-			end*/
+			end
 		end //MAIN_IDLE
 			
 		MAIN_MEMORY_CLEANUP: begin /***** M E M O R Y  C L E A N  UP ****/
-			//state_main_next = MAIN_IDLE;//debuf
+			//state_main_next = MAIN_IDLE;//debug
 			//dac_enable_next = 0; //debugg
 			
 			case (memory_test_ctl) 
@@ -449,6 +474,7 @@ always @(*) begin
 					end
 					else begin
 						state_main_next = MAIN_LOAD_CURVE;
+						load_curve_ctl_next = LOAD_CURVE_IDLE;
 					end
 					
 				end
@@ -490,7 +516,7 @@ always @(*) begin
 					if ( ready ) begin //DRAM ready
 						rw_next = 0;
 						enable_next = 0;
-						if (addr ==  8388608-1) begin
+						if (addr ==  ADDR_HIGH_LOG) begin
 							//memory full. stop
 							sampling_ctl_next = SAMPLER_SAMPLING_DONE;
 						end 
@@ -522,7 +548,6 @@ always @(*) begin
 							enable_next = 1;
 							data_in_next = logic_pack;
 							sampling_logic_ctl_next = SAMPLER_LOGIC_SAVE;
-							debug7q_next = ~debug7q; //DEBUG
 						end
 					end
 				end
@@ -533,7 +558,7 @@ always @(*) begin
 						enable_next = 0;
 						logic_event_ack_next = 1;
 
-						if (addr ==  8388608-1) begin
+						if (addr ==  ADDR_HIGH_LOG) begin
 							//memory full. stop
 							sampling_ctl_next = SAMPLER_SAMPLING_DONE; //finaliza tambem o sampler meter
 							sampling_logic_ctl_next = SAMPLER_LOGIC_DONE;
@@ -545,7 +570,7 @@ always @(*) begin
 					end
 				end
 					
-				SAMPLER_LOGIC_DONE: begin				
+				SAMPLER_LOGIC_DONE: begin
 				end
 						
 			endcase //case sampling_logic_ctl
@@ -559,7 +584,7 @@ always @(*) begin
 				end
 				SERIAL_DUMP_SETUP: begin
 					led2_mode_next = 3; led2_fast_next = 0;
-					addr_next = 0;
+					addr_next = ADDR_LOW_LOG;
 					rw_next = 0;
 					enable_next = 1;
 					serial_dump_ctl_next = SERIAL_DUMP_RUNNING;
@@ -648,7 +673,7 @@ always @(*) begin
 				
 				SERIAL_DUMP_TX: begin
 					tx_en_next = 0;
-					if (addr == 8388608-1) begin
+					if (addr == ADDR_HIGH_LOG) begin
 						serial_dump_ctl_next = SERIAL_DUMP_DONE;
 						addr_next = 0;
 					end
@@ -668,8 +693,127 @@ always @(*) begin
 		
 										
 		MAIN_LOAD_CURVE: begin      /*  RECEIVE IV CURVE ON MEMORY */
-			led2_mode_next = 1; led2_fast_next = 1;
-		end		
+			case (load_curve_ctl)
+				LOAD_CURVE_IDLE: begin
+					load_curve_reg_count_next = 0;
+					addr_next = ADDR_LOW_CURVE; //dram start addr
+					load_curve_ctl_next = LOAD_CURVE_WAIT_SOH;
+				end
+				
+				LOAD_CURVE_WAIT_SOH: begin
+					led2_mode_next = 1; led2_fast_next = 1;
+					if (rx_dv && rx_byte==8'h0f) begin
+						load_curve_ctl_next = LOAD_CURVE_WAIT_RX;
+						load_curve_byte_count_next = 0;
+					end
+				end
+				LOAD_CURVE_WAIT_RX: begin
+					if (rx_dv) begin
+						load_byte[ load_curve_byte_count ] = rx_byte;
+						load_curve_ctl_next = LOAD_CURVE_CHECK;
+					end
+				end
+				LOAD_CURVE_CHECK: begin
+					if (load_curve_byte_count == 4) begin
+						//received 5 bytes
+						if ( load_byte[4] == load_checksum ) begin
+							load_curve_ctl_next = LOAD_CURVE_RECORD;
+						end
+						else begin
+							load_curve_ctl_next = LOAD_CURVE_ERROR;
+						end
+					end
+					else begin
+						load_curve_byte_count_next = load_curve_byte_count+1;
+						load_curve_ctl_next = LOAD_CURVE_WAIT_RX;
+					end
+				end
+				LOAD_CURVE_RECORD: begin
+					if ( ready ) begin //DRAM ready
+						rw_next = 1;
+						enable_next = 1;
+						data_in_next = { load_byte[4], load_byte[3], load_byte[2], load_byte[1]}; //few bits lost here (24 bit real data)
+						load_curve_reg_count_next = load_curve_reg_count + 1;
+						load_curve_ctl_next = LOAD_CURVE_RECORD2;
+					end
+				end
+				LOAD_CURVE_RECORD2: begin
+					if ( ready ) begin //DRAM ready
+						enable_next = 0;
+						rw_next = 0;
+
+						if ( load_curve_reg_count==4094 || addr==ADDR_HIGH_CURVE ) begin
+							load_curve_ctl_next = LOAD_CURVE_FINISHED;
+						end
+						else begin
+							load_curve_ctl_next = LOAD_CURVE_WAIT_SOH;
+							addr_next = addr + 1;
+						end
+					end
+				end
+				
+				LOAD_CURVE_FINISHED: begin
+					led2_mode_next = 3; led2_fast_next = 1;
+					replay_curve_ctl_next = REPLAY_CURVE_IDLE;
+					state_main_next = MAIN_REPLAY;
+					
+
+				end
+				LOAD_CURVE_ERROR: begin
+					led2_mode_next = 15; led2_fast_next = 1;
+				end
+				
+			endcase		
+		end //MAIN_LOAD_CURVE
+		
+		MAIN_REPLAY: begin
+			case (replay_curve_ctl)
+				REPLAY_CURVE_IDLE: begin
+						dac_value_next = 0;
+						dac_enable_next = 1;
+							
+					if (sw2_state) begin
+						replay_curve_ctl_next = REPLAY_CURVE_RUN;
+						led2_mode_next = 2; led2_fast_next = 1;
+						enable_next = 1;
+						rw_next = 0;
+						addr_next = ADDR_LOW_CURVE;
+						amost2_start_next = 1;
+					end
+				end
+				
+				REPLAY_CURVE_RUN: begin
+				//	if (amost2_busy==0) begin
+						if ( ready ) begin //DRAM ready
+							addr_next = ADDR_LOW_CURVE + amost2_data_i;
+							rw_next = 0;
+							enable_next = 1;
+							replay_curve_ctl_next = REPLAY_LOOKUP;
+						end
+					end
+				//end
+				
+				REPLAY_LOOKUP: begin
+					//amost2_start_next = 0;
+					if ( out_valid ) begin //DRAM ready
+							dac_value_next = data_out[11:0];
+							replay_curve_ctl_next = REPLAY_UPDATE;
+					end
+				end
+
+				REPLAY_UPDATE: begin
+					//dac_enable_next = 0;
+					enable_next = 0;
+					replay_curve_ctl_next = REPLAY_CURVE_RUN;
+				end				
+				
+				
+			endcase
+		
+		end //MAIN_REPLAY
+		
+		
+		
 		
 		
 	endcase //case (state_main)
@@ -692,7 +836,7 @@ always @(*) begin
 end
 
 
-	//assign debug7 = debug7q;
+	assign debug7 = debug7q;
 	assign debug11 = debug11q;
 	
 endmodule

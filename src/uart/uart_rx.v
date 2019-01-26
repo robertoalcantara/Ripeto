@@ -16,8 +16,7 @@ module uart_rx
    input        i_Clock,
    input        i_Rx_Serial,
    output       o_Rx_DV,
-   output [7:0] o_Rx_Byte,
-	output teste
+   output [7:0] o_Rx_Byte
    );
   
   parameter CLKS_PER_BIT = 10'd868; //115200
@@ -46,7 +45,6 @@ module uart_rx
       r_Rx_Data   <= r_Rx_Data_R;
     end
   
-  assign teste = (r_SM_Main==s_RX_START_BIT);
   // Purpose: Control RX state machine
   always @(posedge i_Clock)
     begin

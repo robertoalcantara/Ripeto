@@ -192,7 +192,7 @@ module dac(
 					dac_cmd_valid_next = 0;
 					dac_data_in_last_next = 0;
 					dac_data_in_valid_next = 1;
-					dac_data_in_next = {DAC0_REG, CMD_WRITE, 1'b0};
+					dac_data_in_next = {DAC1_REG, CMD_WRITE, 1'b0};
 					/*if (dac_missed_ack) begin
 						dac_ctl_next = DAC_START;
 						dac_cmd_valid_next = 0;			

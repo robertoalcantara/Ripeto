@@ -52,7 +52,8 @@ module SDRAM_Controller_v (
 `else*/
    parameter sdram_column_bits    = 9;     // 8 for standard papilio pro
    parameter sdram_address_width  = 24;    // 22 for standard papilio pro
-   parameter sdram_startup_cycles = 10100; // -- 100us, plus a little more, @ 100MHz
+   parameter sdram_startup_cycles = 10100; // -- 100us, plus a little more, @ 100MHzdata_out_ready
+
    parameter cycles_per_refresh   = 1524;  // = (64000*100)/4096-1 Cycled as (64ms @100MHz)/4096 rows
 //`endif
 
