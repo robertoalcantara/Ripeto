@@ -404,7 +404,17 @@ always @(*) begin
 		MAIN_IDLE: begin
 			led1_mode_next = 1; led1_fast_next = 0;
 			led2_mode_next = 1; led2_fast_next = 0;
-	
+			/**** debug adc */
+			dac_enable_next = 1;
+			if (dac_value == 0 ) begin
+				dac_value_next = 1024;
+				debug7q_next = 1;
+			end
+			else begin
+				dac_value_next = 0;	
+				debug7q_next = 0;
+			end
+			/**** end debug adc */
 			
 			if (sw2_state)	begin
 				state_main_next = MAIN_MEMORY_CLEANUP;
@@ -413,7 +423,7 @@ always @(*) begin
 		end //MAIN_IDLE
 			
 		MAIN_MEMORY_CLEANUP: begin /***** M E M O R Y  C L E A N  UP ****/
-			//state_main_next = MAIN_IDLE;//debug
+			state_main_next = MAIN_IDLE;//debug
 			//dac_enable_next = 0; //debugg
 			
 			case (memory_test_ctl) 
@@ -532,7 +542,7 @@ always @(*) begin
 					led2_mode_next = 2; led2_fast_next = 0;
 					sampling_logic_ctl_next = SAMPLER_LOGIC_DONE; //finaliza tambem o analizador logico
 					state_main_next = MAIN_DUMPING;
-					serial_dump_ctl_next = SERIAL_DUMP_SETUP;
+					serial_dump_ctl_next = SERIAL_DUMP_IDLE;
 
 				end
 			endcase //case (sampling_ctl)
@@ -581,9 +591,12 @@ always @(*) begin
 		MAIN_DUMPING: begin            /****  D U M P   S E R I A L   *****/
 			case (serial_dump_ctl)
 				SERIAL_DUMP_IDLE: begin
+					led2_mode_next = 1; led2_fast_next = 1;
+					if (sw2_state)  serial_dump_ctl_next = SERIAL_DUMP_SETUP;
 				end
 				SERIAL_DUMP_SETUP: begin
 					led2_mode_next = 3; led2_fast_next = 0;
+
 					addr_next = ADDR_LOW_LOG;
 					rw_next = 0;
 					enable_next = 1;

@@ -90,8 +90,8 @@ module dac(
 		.bus_control(dac_bus_control), 
 		.bus_active(dac_bus_active), 
 		.missed_ack(dac_missed_ack), 
-		.prescale(15'd200),  //62?
-		.stop_on_idle(1'b1)
+		.prescale(15'd12),  //200 funciona  //62?
+		.stop_on_idle(1'b0)  //1
 		);
 
 	assign scl_i = i2c_scl_pin;
@@ -117,6 +117,7 @@ module dac(
 	parameter DAC_VL1		= 3;
 	parameter DAC_VL2		= 4;
 	parameter DAC_STOP		= 5;
+	parameter DAC_CMD_CONTINUOUS		= 6;
 
 	always @(posedge clk or posedge rst) begin
 			
@@ -210,13 +211,23 @@ module dac(
 			end
 	
 			DAC_VL2: begin
-					dac_data_in_last_next = 1;
+					dac_data_in_last_next = 1;//1
 					dac_data_in_valid_next = 1;
 					dac_data_in_next = dac_value[7:0];
-					dac_cmd_stop_next = 1;
-
-					if (!dac_busy) 
+					
+					if (dac_data_in_ready)
 						dac_ctl_next = DAC_STOP;
+						
+					/*if (dac_data_in_ready)   //!dac_busy
+						dac_ctl_next = DAC_CMD_CONTINUOUS; //DAC_STOP*/
+			end
+			
+			DAC_CMD_CONTINUOUS: begin
+					dac_data_in_last_next = 0;
+					dac_data_in_valid_next = 1;
+					dac_data_in_next = {DAC1_REG, CMD_WRITE, 1'b0};
+					if (dac_data_in_ready) 
+						dac_ctl_next= DAC_VL1;			
 			end
 						
 			DAC_STOP: begin
