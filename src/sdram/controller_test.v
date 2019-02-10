@@ -404,17 +404,21 @@ always @(*) begin
 		MAIN_IDLE: begin
 			led1_mode_next = 1; led1_fast_next = 0;
 			led2_mode_next = 1; led2_fast_next = 0;
-			/**** debug adc */
+			
+			/**** debug adc
 			dac_enable_next = 1;
 			if (dac_value == 0 ) begin
-				dac_value_next = 1024;
+				dac_value_next = 2048;
 				debug7q_next = 1;
 			end
 			else begin
 				dac_value_next = 0;	
 				debug7q_next = 0;
 			end
-			/**** end debug adc */
+			debug7q_next = !debug7q;
+			dac_value_next = dac_value + 5;
+			state_main_next = MAIN_MEMORY_CLEANUP;
+          *** end debug adc */
 			
 			if (sw2_state)	begin
 				state_main_next = MAIN_MEMORY_CLEANUP;
@@ -423,8 +427,11 @@ always @(*) begin
 		end //MAIN_IDLE
 			
 		MAIN_MEMORY_CLEANUP: begin /***** M E M O R Y  C L E A N  UP ****/
-			state_main_next = MAIN_IDLE;//debug
-			//dac_enable_next = 0; //debugg
+			
+			/*debug adc if (!dac_busy) begin
+				state_main_next = MAIN_IDLE;//debug adc
+				//dac_enable_next = 0; //debug adc
+			end*/
 			
 			case (memory_test_ctl) 
 				MEMORY_CLEANUP_IDLE: begin
