@@ -99,7 +99,7 @@ module dac(
 	assign sda_i = i2c_sda_pin;
 	assign i2c_sda_pin = sda_o ? 1'bz : 1'b0;
 	
-	assign busy = (dac_ctl == DAC_START) || dac_busy;
+	assign busy = !(dac_ctl == DAC_START) || dac_busy;
 ////////////////////////
 	
 	reg [7:0] dac_ctl, dac_ctl_next;
@@ -185,11 +185,11 @@ module dac(
 					dac_data_in_last_next = 0;
 					dac_cmd_address_next = MCP47FEB_ID;
 					dac_ctl_next = DAC_CMD;
+					dac_value_next = ch_value;
 				end
 			end
 			
 			DAC_CMD: begin
-					dac_value_next = ch_value; //update value to send
 					dac_cmd_valid_next = 0;
 					dac_data_in_last_next = 0;
 					dac_data_in_valid_next = 1;
@@ -223,7 +223,6 @@ module dac(
 			end
 			
 			DAC_CMD_CONTINUOUS: begin
-					dac_value_next = ch_value; //update value to send
 					dac_data_in_last_next = 0;
 					dac_data_in_valid_next = 1;
 					dac_data_in_next = {DAC1_REG, CMD_WRITE, 1'b0};

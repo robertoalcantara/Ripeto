@@ -403,7 +403,7 @@ always @(*) begin
 
 		MAIN_IDLE: begin
 			led1_mode_next = 1; led1_fast_next = 0;
-			led2_mode_next = 1; led2_fast_next = 0;
+			led2_mode_next = 1; led2_fast_next = 1;
 			
 			/**** debug adc
 			dac_enable_next = 1;
@@ -414,30 +414,32 @@ always @(*) begin
 			else begin
 				dac_value_next = 0;	
 				debug7q_next = 0;
-			end
+			end*/
+			dac_enable_next = 1;
 			debug7q_next = !debug7q;
 			dac_value_next = dac_value + 5;
 			state_main_next = MAIN_MEMORY_CLEANUP;
-          *** end debug adc */
+          /*** end debug adc */
 			
-			if (sw2_state)	begin
+			/*if (sw2_state)	begin
 				state_main_next = MAIN_MEMORY_CLEANUP;
 				memory_test_ctl_next = MEMORY_CLEANUP_START;
-			end
+			end*/
 		end //MAIN_IDLE
 			
 		MAIN_MEMORY_CLEANUP: begin /***** M E M O R Y  C L E A N  UP ****/
 			
-			/*debug adc if (!dac_busy) begin
+			/*debug adc*/ 
+			if (!dac_busy) begin
 				state_main_next = MAIN_IDLE;//debug adc
 				//dac_enable_next = 0; //debug adc
-			end*/
+			end
 			
 			case (memory_test_ctl) 
 				MEMORY_CLEANUP_IDLE: begin
 				end
 				MEMORY_CLEANUP_START: begin
-					led2_mode_next = 1;	led2_fast_next = 0;
+					led2_mode_next = 0;	led2_fast_next = 0;
 
 					if ( ready ) begin
 						data_in_next = 32'd0; //zero all memory
@@ -546,6 +548,7 @@ always @(*) begin
 				end
 			
 				SAMPLER_SAMPLING_DONE: begin
+
 					led2_mode_next = 2; led2_fast_next = 0;
 					sampling_logic_ctl_next = SAMPLER_LOGIC_DONE; //finaliza tambem o analizador logico
 					state_main_next = MAIN_DUMPING;
