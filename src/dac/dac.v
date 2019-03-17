@@ -90,7 +90,7 @@ module dac(
 		.bus_control(dac_bus_control), 
 		.bus_active(dac_bus_active), 
 		.missed_ack(dac_missed_ack), 
-		.prescale(15'd12),  //200 funciona  //62?
+		.prescale(15'd20),  //200 funciona  //62?   12 funciona as vezes?
 		.stop_on_idle(1'b0)  //1
 		);
 
@@ -193,7 +193,7 @@ module dac(
 					dac_cmd_valid_next = 0;
 					dac_data_in_last_next = 0;
 					dac_data_in_valid_next = 1;
-					dac_data_in_next = {DAC1_REG, CMD_WRITE, 1'b0};
+					dac_data_in_next = {DAC0_REG, CMD_WRITE, 1'b0};
 					/*if (dac_missed_ack) begin
 						dac_ctl_next = DAC_START;
 						dac_cmd_valid_next = 0;			
@@ -222,13 +222,13 @@ module dac(
 						dac_ctl_next = DAC_CMD_CONTINUOUS; //DAC_STOP*/
 			end
 			
-			DAC_CMD_CONTINUOUS: begin
+			/*DAC_CMD_CONTINUOUS: begin
 					dac_data_in_last_next = 0;
 					dac_data_in_valid_next = 1;
 					dac_data_in_next = {DAC1_REG, CMD_WRITE, 1'b0};
 					if (dac_data_in_ready) 
-						dac_ctl_next= DAC_VL1;			
-			end
+						dac_ctl_next= DAC_VL1;		
+			end*/
 						
 			DAC_STOP: begin
 				dac_data_in_last_next = 0;

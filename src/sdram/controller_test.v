@@ -403,9 +403,9 @@ always @(*) begin
 
 		MAIN_IDLE: begin
 			led1_mode_next = 1; led1_fast_next = 0;
-			led2_mode_next = 1; led2_fast_next = 1;
+			led2_mode_next = 1; led2_fast_next = 0;
 			
-			/**** debug adc
+			/**** debug adc 
 			dac_enable_next = 1;
 			if (dac_value == 0 ) begin
 				dac_value_next = 2048;
@@ -415,25 +415,26 @@ always @(*) begin
 				dac_value_next = 0;	
 				debug7q_next = 0;
 			end*/
-			dac_enable_next = 1;
+			/*dac_enable_next = 1;
 			debug7q_next = !debug7q;
-			dac_value_next = dac_value + 5;
-			state_main_next = MAIN_MEMORY_CLEANUP;
-          /*** end debug adc */
+			dac_value_next = dac_value+1;
+			state_main_next = MAIN_MEMORY_CLEANUP;*/
+          //end 
+			 /*debug adc */
 			
-			/*if (sw2_state)	begin
+			if (sw2_state)	begin
 				state_main_next = MAIN_MEMORY_CLEANUP;
 				memory_test_ctl_next = MEMORY_CLEANUP_START;
-			end*/
+			end
 		end //MAIN_IDLE
 			
 		MAIN_MEMORY_CLEANUP: begin /***** M E M O R Y  C L E A N  UP ****/
 			
-			/*debug adc*/ 
+			/*debug adc 
 			if (!dac_busy) begin
 				state_main_next = MAIN_IDLE;//debug adc
 				//dac_enable_next = 0; //debug adc
-			end
+			end*/
 			
 			case (memory_test_ctl) 
 				MEMORY_CLEANUP_IDLE: begin
@@ -755,7 +756,7 @@ always @(*) begin
 					if ( ready ) begin //DRAM ready
 						rw_next = 1;
 						enable_next = 1;
-						data_in_next = { load_byte[4], load_byte[3], load_byte[2], load_byte[1]}; //few bits lost here (24 bit real data)
+						data_in_next = { load_byte[0], load_byte[1], load_byte[2], load_byte[3]}; //few bits lost here (24 bit real data)
 						load_curve_reg_count_next = load_curve_reg_count + 1;
 						load_curve_ctl_next = LOAD_CURVE_RECORD2;
 					end
@@ -821,13 +822,16 @@ always @(*) begin
 					if ( out_valid ) begin //DRAM ready
 							dac_value_next = data_out[11:0];
 							replay_curve_ctl_next = REPLAY_UPDATE;
+							debug7q_next = !debug7q;
 					end
 				end
 
 				REPLAY_UPDATE: begin
 					//dac_enable_next = 0;
 					enable_next = 0;
-					replay_curve_ctl_next = REPLAY_CURVE_RUN;
+					if (!dac_busy) begin
+						replay_curve_ctl_next = REPLAY_CURVE_RUN;
+					end
 				end				
 				
 				
