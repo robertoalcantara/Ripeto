@@ -822,7 +822,6 @@ always @(*) begin
 					if ( out_valid ) begin //DRAM ready
 							dac_value_next = data_out[11:0];
 							replay_curve_ctl_next = REPLAY_UPDATE;
-							debug7q_next = !debug7q;
 					end
 				end
 
