@@ -83,6 +83,7 @@ module controller_test(
 
 	//memory user interface
 	reg [22:0] addr, addr_next;      // address to read/write
+	reg [22:0] addr_sampler, addr_sampler_next; // address to read/write - to sampler
 	reg rw, rw_next;               // 1 = write, 0 = read
 	reg [31:0] data_in, data_in_next;   // data from a read
 	wire [31:0] data_out; // data for a write
@@ -262,6 +263,7 @@ reg [7:0] load_curve_ctl, load_curve_ctl_next;
 parameter LOAD_CURVE_IDLE = 0; parameter LOAD_CURVE_WAIT_SOH = 1;  parameter LOAD_CURVE_WAIT_RX=2; parameter LOAD_CURVE_RECORD=3;
 parameter LOAD_CURVE_CHECK=4; parameter LOAD_CURVE_RECORD2 =5; parameter LOAD_CURVE_FINISHED = 6; parameter LOAD_CURVE_ERROR = 7; 
 
+reg replay_on, replay_on_next;
 reg [7:0] replay_curve_ctl, replay_curve_ctl_next;
 parameter REPLAY_CURVE_IDLE=0; parameter REPLAY_CURVE_RUN=1;  parameter REPLAY_LOOKUP=3; parameter REPLAY_UPDATE=4;
 
@@ -283,6 +285,7 @@ always @(posedge clk100 or posedge rst_p) begin
 		replay_curve_ctl <= 0;
 		
 		addr <= 0;
+		addr_sampler <= 0;
 		rw <= 0;
 		data_in <= 0;
 		enable <= 0;
@@ -299,6 +302,7 @@ always @(posedge clk100 or posedge rst_p) begin
 		tx_en <= 0;
 		dump_type <= 0;
 				
+		replay_on <= 0;
 		load_curve_byte_count <= 0;
 		load_curve_reg_count <= 0;
 				
@@ -324,6 +328,7 @@ always @(posedge clk100 or posedge rst_p) begin
 		debug7q <= debug7q_next;
 	
 		addr <= addr_next;
+		addr_sampler <= addr_sampler_next;
 		rw <= rw_next;
 		data_in <= data_in_next;
 		enable <= enable_next;
@@ -337,7 +342,7 @@ always @(posedge clk100 or posedge rst_p) begin
 		serial_dump_ctl <= serial_dump_ctl_next;
 		load_curve_ctl <= load_curve_ctl_next;
 		replay_curve_ctl <= replay_curve_ctl_next;
-		
+		replay_on <= replay_on_next;
 	
 		load_curve_byte_count <= load_curve_byte_count_next;
 		load_curve_reg_count <= load_curve_reg_count_next;
@@ -363,6 +368,7 @@ end
 always @(*) begin
 
 	addr_next = addr;
+	addr_sampler_next = addr_sampler;
 	rw_next = rw;
 	data_in_next = data_in;
 	enable_next = enable;
@@ -377,7 +383,7 @@ always @(*) begin
 	serial_dump_ctl_next = serial_dump_ctl;
 	load_curve_ctl_next = load_curve_ctl;
 	replay_curve_ctl_next = replay_curve_ctl;
-
+	replay_on_next = replay_on;
 
 	load_curve_byte_count_next = load_curve_byte_count;
 	load_curve_reg_count_next = load_curve_reg_count;
@@ -517,7 +523,8 @@ always @(*) begin
 			case (sampling_ctl) 
 				SAMPLER_IDLE: begin
 				end 
-				SAMPLER_WAITING_START: begin	
+				SAMPLER_WAITING_START: begin
+					addr_sampler_next = ADDR_LOW_LOG;				
 					if (sw2_state) sampling_ctl_next = SAMPLER_SAMPLING_SYNC;
 				end 
 				SAMPLER_SAMPLING_SYNC: begin
@@ -550,12 +557,13 @@ always @(*) begin
 					if ( ready ) begin //DRAM was released
     					rw_next = 0;
 						enable_next = 0;
-						if (addr ==  ADDR_HIGH_LOG) begin
+						if (addr_sampler ==  ADDR_HIGH_LOG) begin
 							//memory full. stop
 							sampling_ctl_next = SAMPLER_SAMPLING_DONE;
 						end 
 						else begin
-							addr_next = addr + 23'd1;
+							addr_next = addr_sampler + 23'd1;
+							addr_sampler_next = addr_sampler + 23'd1;
 							sampling_ctl_next = SAMPLER_SAMPLING_SYNC;
 							amost2_start_next = 1;
 						end
@@ -591,13 +599,14 @@ always @(*) begin
 						enable_next = 0;
 						logic_event_ack_next = 1;
 
-						if (addr ==  ADDR_HIGH_LOG) begin
+						if (addr_sampler ==  ADDR_HIGH_LOG) begin
 							//memory full. stop
 							sampling_ctl_next = SAMPLER_SAMPLING_DONE; //finaliza tambem o sampler meter
 							sampling_logic_ctl_next = SAMPLER_LOGIC_DONE;
 						end 
 						else begin
-							addr_next = addr + 23'd1;
+							addr_next = addr_sampler + 23'd1;
+							addr_sampler_next = addr_sampler + 23'd1;
 							sampling_logic_ctl_next = SAMPLER_LOGIC_RUNNING;
 						end
 					end
@@ -811,58 +820,62 @@ always @(*) begin
 		end //MAIN_LOAD_CURVE
 		
 		MAIN_REPLAY: begin
-			case (replay_curve_ctl)
-				REPLAY_CURVE_IDLE: begin
-						dac_value_next = 0;
-						dac_enable_next = 1;
-							
-					if (sw2_state) begin
-						replay_curve_ctl_next = REPLAY_CURVE_RUN;
-						led2_mode_next = 2; led2_fast_next = 1;
-						enable_next = 1;
-						rw_next = 0;
-						addr_next = ADDR_LOW_CURVE;
-						amost2_start_next = 1;
-					end
-				end
-				
-				REPLAY_CURVE_RUN: begin
-				//	if (amost2_busy==0) begin
-						if ( ready ) begin //DRAM ready
-							addr_next = ADDR_LOW_CURVE + amost2_data_i;
-							rw_next = 0;
-							enable_next = 1;
-							replay_curve_ctl_next = REPLAY_LOOKUP;
-						end
-					end
-				//end
-				
-				REPLAY_LOOKUP: begin
-					//amost2_start_next = 0;
-					if ( out_valid ) begin //DRAM ready
-							dac_value_next = data_out[11:0];
-							replay_curve_ctl_next = REPLAY_UPDATE;
-					end
-				end
-
-				REPLAY_UPDATE: begin
-					//dac_enable_next = 0;
-					enable_next = 0;
-					if (!dac_busy) begin
-						replay_curve_ctl_next = REPLAY_CURVE_RUN;
-					end
-				end				
-				
-				
-			endcase
-		
+			replay_on_next = 1;
 		end //MAIN_REPLAY
 		
-		
-		
-		
-		
 	endcase //case (state_main)
+	
+	
+	/*     R E P L A Y    */
+	if (replay_on == 1) begin //REPLAY MODE ON
+		case (replay_curve_ctl)
+			REPLAY_CURVE_IDLE: begin
+					dac_value_next = 0;
+					dac_enable_next = 1;
+						
+				if (sw2_state && ready) begin
+					replay_curve_ctl_next = REPLAY_CURVE_RUN;
+					led2_mode_next = 2; led2_fast_next = 1;
+					addr_next = ADDR_LOW_CURVE;
+					amost2_start_next = 1;
+					enable_next = 1;
+					rw_next = 0;
+				end
+			end
+			
+			REPLAY_CURVE_RUN: begin
+			//	if (amost2_busy==0) begin
+					if ( ready ) begin //DRAM ready
+						addr_next = ADDR_LOW_CURVE + amost2_data_i;
+						rw_next = 0;
+						enable_next = 1;
+						replay_curve_ctl_next = REPLAY_LOOKUP;
+					end
+				end
+			//end
+			
+			REPLAY_LOOKUP: begin
+				//amost2_start_next = 0;
+				enable_next = 0;
+				if ( out_valid ) begin //DRAM ready
+						dac_value_next = data_out[11:0];
+						replay_curve_ctl_next = REPLAY_UPDATE;
+				end
+			end
+
+			REPLAY_UPDATE: begin
+				//dac_enable_next = 0;
+				//enable_next = 0;
+				if (!dac_busy) begin
+					replay_curve_ctl_next = REPLAY_CURVE_RUN;
+				end
+			end				
+			
+			
+		endcase
+	end //replay_mode_on
+		
+	
 	
 end
 
