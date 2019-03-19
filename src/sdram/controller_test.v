@@ -90,6 +90,9 @@ module controller_test(
 	wire out_valid;        // pulses high when data from read is valid
 	reg enable, enable_next;
 	reg [31:0] data_read, data_read_next;
+	
+	reg [31:0] data_to_dump, data_to_dump_next; // data for a write
+
 
 	SDRAM_Controller_v SDRAM (
 	   .clk(clk100),   .reset(rst_p),
@@ -238,7 +241,7 @@ parameter MAIN_REPLAY = 6;
 reg [7:0] sampling_ctl, sampling_ctl_next;
 parameter SAMPLER_IDLE = 0;
 parameter SAMPLER_WAITING_START = 2; parameter SAMPLER_SAMPLING = 3; parameter SAMPLER_SAMPLING_SYNC=4;
-parameter SAMPLER_SAMPLING_SAVE= 5 ; parameter SAMPLER_SAMPLING_DONE = 6; 
+parameter SAMPLER_SAMPLING_SAVE= 5 ; parameter SAMPLER_SAMPLING_DONE = 6; parameter SAMPLER_SAMPLING_SAVE_WAIT = 7;
 
 reg [7:0] sampling_logic_ctl, sampling_logic_ctl_next;
 parameter SAMPLER_LOGIC_IDLE=0; parameter SAMPLER_LOGIC_RUNNING=1; 
@@ -253,7 +256,7 @@ parameter MEMORY_CLEANUP_FAULT = 6;
 reg [7:0] serial_dump_ctl, serial_dump_ctl_next;
 parameter SERIAL_DUMP_IDLE = 0; parameter SERIAL_DUMP_SETUP=1;parameter SERIAL_DUMP_RUNNING =2; parameter SERIAL_DUMP_RUNNING1 =3;  
 parameter SERIAL_DUMP_RUNNING2 =4; parameter SERIAL_DUMP_RUNNING3 =5;  parameter SERIAL_DUMP_RUNNING4=6; parameter SERIAL_DUMP_RUNNING5=7; 
-parameter SERIAL_DUMP_TX=8; parameter SERIAL_DUMP_DONE=9;
+parameter SERIAL_DUMP_TX=8; parameter SERIAL_DUMP_DONE=9;parameter SERIAL_DUMP_RUNNING0 =10; 
 
 reg [7:0] load_curve_ctl, load_curve_ctl_next;
 parameter LOAD_CURVE_IDLE = 0; parameter LOAD_CURVE_WAIT_SOH = 1;  parameter LOAD_CURVE_WAIT_RX=2; parameter LOAD_CURVE_RECORD=3;
@@ -291,6 +294,7 @@ always @(posedge clk100 or posedge rst_p) begin
 		logic_event_saved <= 0;
 		logic_event_ack <= 0;
 		
+		data_to_dump <= 0;
 		tx_byte <= 0;
 		tx_en <= 0;
 		dump_type <= 0;
@@ -314,6 +318,7 @@ always @(posedge clk100 or posedge rst_p) begin
 		tx_byte <= tx_byte_next;
 		tx_en <= tx_en_next;
 		dump_type <= dump_type_next;
+		data_to_dump <= data_to_dump_next;
 	
 		debug11q <= debug11q_next;
 		debug7q <= debug7q_next;
@@ -385,6 +390,7 @@ always @(*) begin
 	tx_byte_next = tx_byte;
 	tx_en_next = tx_en;
 	dump_type_next = dump_type;
+	data_to_dump_next = data_to_dump;
 
 	dac_enable_next = dac_enable;
 	dac_value_next = dac_value;
@@ -520,21 +526,29 @@ always @(*) begin
 						sampling_logic_ctl_next = SAMPLER_LOGIC_RUNNING;
 				end
 				SAMPLER_SAMPLING: begin
-					led2_mode_next = 2; led2_fast_next = 1;
-					amost2_start_next = 0;
 					if (sw2_state) sampling_ctl_next = SAMPLER_SAMPLING_DONE;
-
+					led2_mode_next = 2; led2_fast_next = 1;
+					
 					if (amost2_busy==0) begin
+						amost2_start_next = 0;
 						//formatar pacote
 						data_in_next = {amost2_data_v, amost2_data_i,amost2_checksum,1'b0,1'b1}; //DATA!
-						sampling_ctl_next = SAMPLER_SAMPLING_SAVE;
-						rw_next = 1;
-						enable_next = 1;
+						sampling_ctl_next = SAMPLER_SAMPLING_SAVE_WAIT;
 					end
 				end
+				
+				SAMPLER_SAMPLING_SAVE_WAIT: begin
+					if (ready) begin
+						data_in_next = {amost2_data_v, amost2_data_i,amost2_checksum,1'b0,1'b1}; //DATA!
+						rw_next = 1;
+						enable_next = 1;
+						sampling_ctl_next = SAMPLER_SAMPLING_SAVE;
+					end
+				end
+				
 				SAMPLER_SAMPLING_SAVE: begin
-					if ( ready ) begin //DRAM ready
-						rw_next = 0;
+					if ( ready ) begin //DRAM was released
+    					rw_next = 0;
 						enable_next = 0;
 						if (addr ==  ADDR_HIGH_LOG) begin
 							//memory full. stop
@@ -549,12 +563,10 @@ always @(*) begin
 				end
 			
 				SAMPLER_SAMPLING_DONE: begin
-
 					led2_mode_next = 2; led2_fast_next = 0;
 					sampling_logic_ctl_next = SAMPLER_LOGIC_DONE; //finaliza tambem o analizador logico
 					state_main_next = MAIN_DUMPING;
 					serial_dump_ctl_next = SERIAL_DUMP_IDLE;
-
 				end
 			endcase //case (sampling_ctl)
 			
@@ -608,42 +620,49 @@ always @(*) begin
 				SERIAL_DUMP_SETUP: begin
 					led2_mode_next = 3; led2_fast_next = 0;
 
-					addr_next = ADDR_LOW_LOG;
-					rw_next = 0;
-					enable_next = 1;
-					serial_dump_ctl_next = SERIAL_DUMP_RUNNING;
+					if (ready) begin
+						addr_next = ADDR_LOW_LOG;
+						rw_next = 0;
+						enable_next = 1;
+						serial_dump_ctl_next = SERIAL_DUMP_RUNNING;
+					end
 				end
 				
 				SERIAL_DUMP_RUNNING: begin
 					if ( out_valid ) begin	
+						enable_next = 0;
+						data_to_dump_next = data_out;
 						if (data_out[0]!=1) begin
-								serial_dump_ctl_next = SERIAL_DUMP_DONE; //valid register
+								serial_dump_ctl_next = SERIAL_DUMP_DONE; //not valid register
 								tx_en_next = 0;						
 						end
 						else begin
-							if (tx_ready) begin
-								if (data_out[1]==0) begin
-									tx_byte_next = 8'h0A;
-									dump_type_next = 0; //data sample pack
-								end
-								else begin
-									tx_byte_next = 8'h0C;
-									dump_type_next = 2; //data logic pack
-								end
-									
-								tx_en_next = 1;
-								serial_dump_ctl_next = SERIAL_DUMP_RUNNING1;
-							end
+							serial_dump_ctl_next = SERIAL_DUMP_RUNNING0;
 						end
 					end
 				end				
 	
+				SERIAL_DUMP_RUNNING0: begin				
+					if (tx_ready) begin
+						if (data_to_dump[1]==0) begin
+							tx_byte_next = 8'h0A;
+							dump_type_next = 0; //data sample pack
+						end
+						else begin
+							tx_byte_next = 8'h0C;
+							dump_type_next = 2; //data logic pack
+						end
+						tx_en_next = 1;
+						serial_dump_ctl_next = SERIAL_DUMP_RUNNING1;
+					end				
+				end
+	
 				SERIAL_DUMP_RUNNING1: begin
 					tx_en_next = 0;
-					if (tx_ready && out_valid) begin
+					if (tx_ready) begin
 						case (dump_type)
-							0: tx_byte_next = {4'b0000, data_out[31:28]};
-							2: tx_byte_next = data_out[31:24];
+							0: tx_byte_next = {4'b0000, data_to_dump[31:28]};
+							2: tx_byte_next = data_to_dump[31:24];
 						endcase
 						tx_en_next = 1;
 						serial_dump_ctl_next = SERIAL_DUMP_RUNNING2;
@@ -651,10 +670,10 @@ always @(*) begin
 				end
 				SERIAL_DUMP_RUNNING2: begin
 					tx_en_next = 0;
-					if (tx_ready && out_valid) begin
+					if (tx_ready) begin
 						case (dump_type)
-							0: tx_byte_next = data_out[27:20];
-							2: tx_byte_next = data_out[23:16];
+							0: tx_byte_next = data_to_dump[27:20];
+							2: tx_byte_next = data_to_dump[23:16];
 						endcase						
 						tx_en_next = 1;
 						serial_dump_ctl_next = SERIAL_DUMP_RUNNING3;
@@ -662,10 +681,10 @@ always @(*) begin
 				end					
 				SERIAL_DUMP_RUNNING3: begin
 					tx_en_next = 0;
-					if (tx_ready && out_valid) begin
+					if (tx_ready) begin
 						case (dump_type)
-							0:	tx_byte_next = {4'b0000, data_out[19:16]};
-							2: tx_byte_next = data_out[15:8];
+							0:	tx_byte_next = {4'b0000, data_to_dump[19:16]};
+							2: tx_byte_next = data_to_dump[15:8];
 						endcase
 						tx_en_next = 1;
 						serial_dump_ctl_next = SERIAL_DUMP_RUNNING4;
@@ -673,9 +692,9 @@ always @(*) begin
 				end	
 				SERIAL_DUMP_RUNNING4: begin
 					tx_en_next = 0;
-					if (tx_ready && out_valid) begin
+					if (tx_ready) begin
 						case (dump_type)
-							0:	tx_byte_next = data_out[15:8];
+							0:	tx_byte_next = data_to_dump[15:8];
 							2: tx_byte_next = 8'd0;
 						endcase					
 						tx_en_next = 1;
@@ -684,17 +703,15 @@ always @(*) begin
 				end
 				SERIAL_DUMP_RUNNING5: begin
 					tx_en_next = 0;
-					if (tx_ready && out_valid) begin
+					if (tx_ready) begin
 						case (dump_type)
-							0:	tx_byte_next = {2'b0, data_out[7:2]};
-							2: tx_byte_next = {2'b0, data_out[7:2]};
+							0:	tx_byte_next = {2'b0, data_to_dump[7:2]};
+							2: tx_byte_next = {2'b0, data_to_dump[7:2]};
 						endcase
 						tx_en_next = 1;
 						serial_dump_ctl_next = SERIAL_DUMP_TX;
 					end
 				end
-
-				
 				SERIAL_DUMP_TX: begin
 					tx_en_next = 0;
 					if (addr == ADDR_HIGH_LOG) begin
@@ -702,9 +719,12 @@ always @(*) begin
 						addr_next = 0;
 					end
 					else begin
-						addr_next = addr + 23'd1;
-						serial_dump_ctl_next = SERIAL_DUMP_RUNNING;
-
+						if (ready) begin
+							addr_next = addr + 23'd1;
+							rw_next = 0;
+							enable_next = 1;
+							serial_dump_ctl_next = SERIAL_DUMP_RUNNING;
+						end
 					end
 
 				end

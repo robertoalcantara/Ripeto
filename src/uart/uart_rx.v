@@ -19,8 +19,8 @@ module uart_rx
    output [7:0] o_Rx_Byte
    );
   
-  //parameter CLKS_PER_BIT = 10'd868; //115200
-  parameter CLKS_PER_BIT = 10'd108; //921600
+  parameter CLKS_PER_BIT = 10'd868; //115200
+  //parameter CLKS_PER_BIT = 10'd108; //921600
 
   parameter s_IDLE         = 3'b000;
   parameter s_RX_START_BIT = 3'b001;
