@@ -1,7 +1,7 @@
 #Release 14.7 - par P.20131013 (lin64)
 #Copyright (c) 1995-2013 Xilinx, Inc.  All rights reserved.
 
-#Tue Mar 19 11:43:40 2019
+#Sat Mar 23 22:22:33 2019
 
 #
 ## NOTE: This file is designed to be imported into a spreadsheet program
@@ -46,7 +46,7 @@ B8,,IOBM,IO_L33P_0,UNUSED,,0,,,,,,,,,
 B9,,,VCCO_0,,,0,,,,,3.30,,,,
 B10,,IOBM,IO_L35P_GCLK17_0,UNUSED,,0,,,,,,,,,
 B11,,,GND,,,,,,,,,,,,
-B12,debug11,IOB,IO_L62P_0,OUTPUT,LVTTL,0,12,SLOW,,,,LOCATED,YES,NONE,
+B12,,IOBM,IO_L62P_0,UNUSED,,0,,,,,,,,,
 B13,,,VCCO_0,,,0,,,,,3.30,,,,
 B14,,IOBM,IO_L65P_SCP3_0,UNUSED,,0,,,,,,,,,
 B15,,IOBM,IO_L29P_A23_M1A13_1,UNUSED,,1,,,,,,,,,
@@ -61,7 +61,7 @@ C7,,IOBM,IO_L6P_0,UNUSED,,0,,,,,,,,,
 C8,,IOBS,IO_L38N_VREF_0,UNUSED,,0,,,,,,,,,
 C9,,IOBM,IO_L34P_GCLK19_0,UNUSED,,0,,,,,,,,,
 C10,dac_scl_pin,IOB,IO_L37N_GCLK12_0,BIDIR,LVTTL,0,12,SLOW,,NONE,,LOCATED,NO,NONE,
-C11,,IOBM,IO_L39P_0,UNUSED,,0,,,,,,,,,
+C11,debug11,IOB,IO_L39P_0,OUTPUT,LVTTL,0,12,SLOW,,,,LOCATED,YES,NONE,
 C12,,,TDI,,,,,,,,,,,,
 C13,,IOBM,IO_L63P_SCP7_0,UNUSED,,0,,,,,,,,,
 C14,,,TCK,,,,,,,,,,,,

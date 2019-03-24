@@ -106,6 +106,17 @@ module controller_test(
 	   .SDRAM_WE(sdram_we), .SDRAM_DQM(sdram_dqm), .SDRAM_ADDR(sdram_a), .SDRAM_BA(sdram_ba), .SDRAM_DATA(sdram_dq)
 	);
 	
+	reg req1, req1_next, req2, req2_next;
+	wire ack1, ack2;
+	sdram_arbiter arbiter (
+		.clk(clk100), 
+		.rst(rst_p), 
+		.req1(req1), 
+		.ack1(ack1), 
+		.req2(req2), 
+		.ack2(ack2)
+	);
+
 
 	reg amost2_start, amost2_start_next;	
 	wire amost2_busy;
@@ -242,7 +253,7 @@ parameter MAIN_REPLAY = 6;
 reg [7:0] sampling_ctl, sampling_ctl_next;
 parameter SAMPLER_IDLE = 0;
 parameter SAMPLER_WAITING_START = 2; parameter SAMPLER_SAMPLING = 3; parameter SAMPLER_SAMPLING_SYNC=4;
-parameter SAMPLER_SAMPLING_SAVE= 5 ; parameter SAMPLER_SAMPLING_DONE = 6; parameter SAMPLER_SAMPLING_SAVE_WAIT = 7;
+parameter SAMPLER_SAMPLING_SAVE= 5 ; parameter SAMPLER_SAMPLING_DONE = 6; parameter SAMPLER_SAMPLING_SAVE_WAIT = 7; parameter SAMPLER_CHECK_ARBITER=8;
 
 reg [7:0] sampling_logic_ctl, sampling_logic_ctl_next;
 parameter SAMPLER_LOGIC_IDLE=0; parameter SAMPLER_LOGIC_RUNNING=1; 
@@ -265,7 +276,7 @@ parameter LOAD_CURVE_CHECK=4; parameter LOAD_CURVE_RECORD2 =5; parameter LOAD_CU
 
 reg replay_on, replay_on_next;
 reg [7:0] replay_curve_ctl, replay_curve_ctl_next;
-parameter REPLAY_CURVE_IDLE=0; parameter REPLAY_CURVE_RUN=1;  parameter REPLAY_LOOKUP=3; parameter REPLAY_UPDATE=4;
+parameter REPLAY_CURVE_IDLE=0; parameter REPLAY_CURVE_RUN=1;  parameter REPLAY_LOOKUP=3; parameter REPLAY_UPDATE=4; parameter REPLAY_CHECK_ARBITER=5;
 
 reg[7:0] load_curve_byte_count, load_curve_byte_count_next;
 reg[13:0] load_curve_reg_count, load_curve_reg_count_next;
@@ -289,6 +300,9 @@ always @(posedge clk100 or posedge rst_p) begin
 		rw <= 0;
 		data_in <= 0;
 		enable <= 0;
+		
+		req1 <= 0;
+		req2 <= 0;
 		
 		amost2_start <= 0;
 		
@@ -333,6 +347,9 @@ always @(posedge clk100 or posedge rst_p) begin
 		data_in <= data_in_next;
 		enable <= enable_next;
 		
+		req1 <= req1_next;
+		req2 <= req2_next;
+		
 		amost2_start <= amost2_start_next;
 		
 		state_main <= state_main_next;
@@ -373,6 +390,9 @@ always @(*) begin
 	data_in_next = data_in;
 	enable_next = enable;
 	amost2_start_next = amost2_start;
+	
+	req1_next = req1;
+	req2_next = req2;
 	
 	logic_event_ack_next = logic_event_ack;
 	
@@ -537,24 +557,33 @@ always @(*) begin
 					led2_mode_next = 2; led2_fast_next = 1;
 					
 					if (amost2_busy==0) begin
-						amost2_start_next = 0;
-						//formatar pacote
+						//amost2_start_next = 0;
 						data_in_next = {amost2_data_v, amost2_data_i,amost2_checksum,1'b0,1'b1}; //DATA!
+						sampling_ctl_next = SAMPLER_CHECK_ARBITER;
+						req1_next = 1; //requisita o uso da memoria
+					end
+				end
+				
+				SAMPLER_CHECK_ARBITER: begin
+					if (ack1 == 1) begin
+						//memoria liberada
 						sampling_ctl_next = SAMPLER_SAMPLING_SAVE_WAIT;
 					end
 				end
 				
 				SAMPLER_SAMPLING_SAVE_WAIT: begin
 					if (ready) begin
-						data_in_next = {amost2_data_v, amost2_data_i,amost2_checksum,1'b0,1'b1}; //DATA!
 						rw_next = 1;
 						enable_next = 1;
+						addr_next = addr_sampler;
 						sampling_ctl_next = SAMPLER_SAMPLING_SAVE;
 					end
 				end
 				
 				SAMPLER_SAMPLING_SAVE: begin
 					if ( ready ) begin //DRAM was released
+
+						req1_next = 0; //libera o uso da memoria
     					rw_next = 0;
 						enable_next = 0;
 						if (addr_sampler ==  ADDR_HIGH_LOG) begin
@@ -562,7 +591,6 @@ always @(*) begin
 							sampling_ctl_next = SAMPLER_SAMPLING_DONE;
 						end 
 						else begin
-							addr_next = addr_sampler + 23'd1;
 							addr_sampler_next = addr_sampler + 23'd1;
 							sampling_ctl_next = SAMPLER_SAMPLING_SYNC;
 							amost2_start_next = 1;
@@ -577,7 +605,7 @@ always @(*) begin
 					serial_dump_ctl_next = SERIAL_DUMP_IDLE;
 				end
 			endcase //case (sampling_ctl)
-			
+			/*
 			case (sampling_logic_ctl)   // logic analizer
 				SAMPLER_LOGIC_IDLE: begin
 				end
@@ -616,62 +644,59 @@ always @(*) begin
 				end
 						
 			endcase //case sampling_logic_ctl
+			*/
 			
 		end // MAIN_SAMPLING
 	
+
+
 
 		MAIN_DUMPING: begin            /****  D U M P   S E R I A L   *****/
 			case (serial_dump_ctl)
 				SERIAL_DUMP_IDLE: begin
 					led2_mode_next = 1; led2_fast_next = 1;
+					replay_on_next = 0;
 					if (sw2_state)  serial_dump_ctl_next = SERIAL_DUMP_SETUP;
 				end
 				SERIAL_DUMP_SETUP: begin
 					led2_mode_next = 3; led2_fast_next = 0;
 
-					if (ready) begin
-						addr_next = ADDR_LOW_LOG;
-						rw_next = 0;
-						enable_next = 1;
-						serial_dump_ctl_next = SERIAL_DUMP_RUNNING;
-					end
+					addr_next = ADDR_LOW_LOG;
+					rw_next = 0;
+					enable_next = 1;
+					serial_dump_ctl_next = SERIAL_DUMP_RUNNING;
 				end
 				
 				SERIAL_DUMP_RUNNING: begin
 					if ( out_valid ) begin	
-						enable_next = 0;
-						data_to_dump_next = data_out;
 						if (data_out[0]!=1) begin
-								serial_dump_ctl_next = SERIAL_DUMP_DONE; //not valid register
+								serial_dump_ctl_next = SERIAL_DUMP_DONE; //valid register
 								tx_en_next = 0;						
 						end
 						else begin
-							serial_dump_ctl_next = SERIAL_DUMP_RUNNING0;
+							if (tx_ready) begin
+								if (data_out[1]==0) begin
+									tx_byte_next = 8'h0A;
+									dump_type_next = 0; //data sample pack
+								end
+								else begin
+									tx_byte_next = 8'h0C;
+									dump_type_next = 2; //data logic pack
+								end
+									
+								tx_en_next = 1;
+								serial_dump_ctl_next = SERIAL_DUMP_RUNNING1;
+							end
 						end
 					end
 				end				
 	
-				SERIAL_DUMP_RUNNING0: begin				
-					if (tx_ready) begin
-						if (data_to_dump[1]==0) begin
-							tx_byte_next = 8'h0A;
-							dump_type_next = 0; //data sample pack
-						end
-						else begin
-							tx_byte_next = 8'h0C;
-							dump_type_next = 2; //data logic pack
-						end
-						tx_en_next = 1;
-						serial_dump_ctl_next = SERIAL_DUMP_RUNNING1;
-					end				
-				end
-	
 				SERIAL_DUMP_RUNNING1: begin
 					tx_en_next = 0;
-					if (tx_ready) begin
+					if (tx_ready && out_valid) begin
 						case (dump_type)
-							0: tx_byte_next = {4'b0000, data_to_dump[31:28]};
-							2: tx_byte_next = data_to_dump[31:24];
+							0: tx_byte_next = {4'b0000, data_out[31:28]};
+							2: tx_byte_next = data_out[31:24];
 						endcase
 						tx_en_next = 1;
 						serial_dump_ctl_next = SERIAL_DUMP_RUNNING2;
@@ -679,10 +704,10 @@ always @(*) begin
 				end
 				SERIAL_DUMP_RUNNING2: begin
 					tx_en_next = 0;
-					if (tx_ready) begin
+					if (tx_ready && out_valid) begin
 						case (dump_type)
-							0: tx_byte_next = data_to_dump[27:20];
-							2: tx_byte_next = data_to_dump[23:16];
+							0: tx_byte_next = data_out[27:20];
+							2: tx_byte_next = data_out[23:16];
 						endcase						
 						tx_en_next = 1;
 						serial_dump_ctl_next = SERIAL_DUMP_RUNNING3;
@@ -690,10 +715,10 @@ always @(*) begin
 				end					
 				SERIAL_DUMP_RUNNING3: begin
 					tx_en_next = 0;
-					if (tx_ready) begin
+					if (tx_ready && out_valid) begin
 						case (dump_type)
-							0:	tx_byte_next = {4'b0000, data_to_dump[19:16]};
-							2: tx_byte_next = data_to_dump[15:8];
+							0:	tx_byte_next = {4'b0000, data_out[19:16]};
+							2: tx_byte_next = data_out[15:8];
 						endcase
 						tx_en_next = 1;
 						serial_dump_ctl_next = SERIAL_DUMP_RUNNING4;
@@ -701,9 +726,9 @@ always @(*) begin
 				end	
 				SERIAL_DUMP_RUNNING4: begin
 					tx_en_next = 0;
-					if (tx_ready) begin
+					if (tx_ready && out_valid) begin
 						case (dump_type)
-							0:	tx_byte_next = data_to_dump[15:8];
+							0:	tx_byte_next = data_out[15:8];
 							2: tx_byte_next = 8'd0;
 						endcase					
 						tx_en_next = 1;
@@ -712,15 +737,17 @@ always @(*) begin
 				end
 				SERIAL_DUMP_RUNNING5: begin
 					tx_en_next = 0;
-					if (tx_ready) begin
+					if (tx_ready && out_valid) begin
 						case (dump_type)
-							0:	tx_byte_next = {2'b0, data_to_dump[7:2]};
-							2: tx_byte_next = {2'b0, data_to_dump[7:2]};
+							0:	tx_byte_next = {2'b0, data_out[7:2]};
+							2: tx_byte_next = {2'b0, data_out[7:2]};
 						endcase
 						tx_en_next = 1;
 						serial_dump_ctl_next = SERIAL_DUMP_TX;
 					end
 				end
+
+				
 				SERIAL_DUMP_TX: begin
 					tx_en_next = 0;
 					if (addr == ADDR_HIGH_LOG) begin
@@ -728,12 +755,9 @@ always @(*) begin
 						addr_next = 0;
 					end
 					else begin
-						if (ready) begin
-							addr_next = addr + 23'd1;
-							rw_next = 0;
-							enable_next = 1;
-							serial_dump_ctl_next = SERIAL_DUMP_RUNNING;
-						end
+						addr_next = addr + 23'd1;
+						serial_dump_ctl_next = SERIAL_DUMP_RUNNING;
+
 					end
 
 				end
@@ -786,6 +810,7 @@ always @(*) begin
 						rw_next = 1;
 						enable_next = 1;
 						data_in_next = { load_byte[0], load_byte[1], load_byte[2], load_byte[3]}; //few bits lost here (24 bit real data)
+
 						load_curve_reg_count_next = load_curve_reg_count + 1;
 						load_curve_ctl_next = LOAD_CURVE_RECORD2;
 					end
@@ -821,6 +846,9 @@ always @(*) begin
 		
 		MAIN_REPLAY: begin
 			replay_on_next = 1;
+			state_main_next = MAIN_SAMPLING;
+			sampling_ctl_next = SAMPLER_WAITING_START;
+			sampling_logic_ctl_next = SAMPLER_LOGIC_RUNNING;
 		end //MAIN_REPLAY
 		
 	endcase //case (state_main)
@@ -828,46 +856,50 @@ always @(*) begin
 	
 	/*     R E P L A Y    */
 	if (replay_on == 1) begin //REPLAY MODE ON
+		amost2_start_next = 1;
+
 		case (replay_curve_ctl)
 			REPLAY_CURVE_IDLE: begin
-					dac_value_next = 0;
-					dac_enable_next = 1;
-						
-				if (sw2_state && ready) begin
-					replay_curve_ctl_next = REPLAY_CURVE_RUN;
-					led2_mode_next = 2; led2_fast_next = 1;
-					addr_next = ADDR_LOW_CURVE;
-					amost2_start_next = 1;
+				dac_value_next = 0;
+				dac_enable_next = 1;
+				replay_curve_ctl_next = REPLAY_CHECK_ARBITER;
+				//led2_mode_next = 2; led2_fast_next = 1;
+				req2_next = 1; //requisita memoria
+			end
+			
+			REPLAY_CHECK_ARBITER: begin
+				if ( ack2 ) begin
+					//memoria liberada
 					enable_next = 1;
 					rw_next = 0;
+					replay_curve_ctl_next = REPLAY_CURVE_RUN;
 				end
 			end
 			
 			REPLAY_CURVE_RUN: begin
-			//	if (amost2_busy==0) begin
-					if ( ready ) begin //DRAM ready
-						addr_next = ADDR_LOW_CURVE + amost2_data_i;
-						rw_next = 0;
-						enable_next = 1;
-						replay_curve_ctl_next = REPLAY_LOOKUP;
-					end
+				if ( ready ) begin //DRAM ready
+					addr_next = ADDR_LOW_CURVE + amost2_data_i;
+					rw_next = 0;
+					enable_next = 1;
+					replay_curve_ctl_next = REPLAY_LOOKUP;
 				end
-			//end
-			
+			end
+					
 			REPLAY_LOOKUP: begin
-				//amost2_start_next = 0;
-				enable_next = 0;
-				if ( out_valid ) begin //DRAM ready
+				if ( ready && out_valid ) begin //DRAM ready
+						enable_next = 0;
+						req2_next = 0; //libera memoria
 						dac_value_next = data_out[11:0];
 						replay_curve_ctl_next = REPLAY_UPDATE;
+						dac_enable_next = 1;
 				end
 			end
 
 			REPLAY_UPDATE: begin
-				//dac_enable_next = 0;
-				//enable_next = 0;
 				if (!dac_busy) begin
-					replay_curve_ctl_next = REPLAY_CURVE_RUN;
+					replay_curve_ctl_next = REPLAY_CHECK_ARBITER;
+					req2_next = 1; //solicita 
+					dac_enable_next = 0;
 				end
 			end				
 			
@@ -895,7 +927,7 @@ always @(*) begin
 end
 
 
-	assign debug7 = debug7q;
+	assign debug7 = out_valid;
 	assign debug11 = debug11q;
 	
 endmodule
