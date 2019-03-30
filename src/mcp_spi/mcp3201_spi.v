@@ -103,6 +103,7 @@ always @(posedge clk_slow or posedge rst) begin
 			end
 			4: begin
 				if (cnt == 12) begin
+					cs_r <= 1; //disable cs
 					main_state <= 5;
 					new_data_r <= 1; //data is available
 				end
