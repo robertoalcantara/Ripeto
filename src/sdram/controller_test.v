@@ -23,8 +23,8 @@ module controller_test(
    
 	input clk, 
 	input rst,
-	input sw2,
-    
+	input sw2,	
+	
 	output sdram_clk,
 	output sdram_cle,
 	output sdram_cs,
@@ -40,6 +40,8 @@ module controller_test(
 	output led2,
 	output debug7,
 	output debug11,
+	
+	output [15:0]debug, //debug to logic analizer
 	
 	output uart_tx_pin,
 	input uart_rx_pin,
@@ -106,15 +108,17 @@ module controller_test(
 	   .SDRAM_WE(sdram_we), .SDRAM_DQM(sdram_dqm), .SDRAM_ADDR(sdram_a), .SDRAM_BA(sdram_ba), .SDRAM_DATA(sdram_dq)
 	);
 	
-	reg req1, req1_next, req2, req2_next;
-	wire ack1, ack2;
+	reg req1, req1_next, req2, req2_next, req3, req3_next;
+	wire ack1, ack2, ack3;
 	sdram_arbiter arbiter (
 		.clk(clk100), 
 		.rst(rst_p), 
 		.req1(req1), 
 		.ack1(ack1), 
 		.req2(req2), 
-		.ack2(ack2)
+		.ack2(ack2),
+		.req3(req3),
+		.ack3(ack3)
 	);
 
 
@@ -257,7 +261,7 @@ parameter SAMPLER_SAMPLING_SAVE= 5 ; parameter SAMPLER_SAMPLING_DONE = 6; parame
 
 reg [7:0] sampling_logic_ctl, sampling_logic_ctl_next;
 parameter SAMPLER_LOGIC_IDLE=0; parameter SAMPLER_LOGIC_RUNNING=1; 
-parameter SAMPLER_LOGIC_SAVE=2; parameter SAMPLER_LOGIC_DONE=3;
+parameter SAMPLER_LOGIC_SAVE=2; parameter SAMPLER_LOGIC_DONE=3; parameter SAMPLER_LOGIC_CHECK_ARBITER=4;
 
 reg [7:0] memory_test_ctl, memory_test_ctl_next;
 parameter MEMORY_CLEANUP_IDLE = 0;  parameter MEMORY_CLEANUP_START = 1;
@@ -303,6 +307,7 @@ always @(posedge clk100 or posedge rst_p) begin
 		
 		req1 <= 0;
 		req2 <= 0;
+		req3 <= 0;
 		
 		amost2_start <= 0;
 		
@@ -349,6 +354,7 @@ always @(posedge clk100 or posedge rst_p) begin
 		
 		req1 <= req1_next;
 		req2 <= req2_next;
+		req3 <= req3_next;
 		
 		amost2_start <= amost2_start_next;
 		
@@ -393,6 +399,7 @@ always @(*) begin
 	
 	req1_next = req1;
 	req2_next = req2;
+	req3_next = req3;
 	
 	logic_event_ack_next = logic_event_ack;
 	
@@ -594,6 +601,8 @@ always @(*) begin
 							addr_sampler_next = addr_sampler + 23'd1;
 							sampling_ctl_next = SAMPLER_SAMPLING_SYNC;
 							amost2_start_next = 1;
+	debug7q_next = !debug7q;
+
 						end
 					end
 				end
@@ -605,24 +614,34 @@ always @(*) begin
 					serial_dump_ctl_next = SERIAL_DUMP_IDLE;
 				end
 			endcase //case (sampling_ctl)
-			/*
+			
 			case (sampling_logic_ctl)   // logic analizer
 				SAMPLER_LOGIC_IDLE: begin
 				end
 				SAMPLER_LOGIC_RUNNING: begin
 					logic_event_ack_next = 0;
 					if (logic_event_saved) begin
-						if ( ready ) begin //DRAM ready
-							rw_next = 1;
-							enable_next = 1;
-							data_in_next = logic_pack;
-							sampling_logic_ctl_next = SAMPLER_LOGIC_SAVE;
-						end
+						req2_next = 1;
+						sampling_logic_ctl_next = SAMPLER_LOGIC_CHECK_ARBITER;
 					end
 				end
 				
+				SAMPLER_LOGIC_CHECK_ARBITER: begin
+					if (ack2) begin
+						if ( ready ) begin //DRAM ready
+							rw_next = 1;
+							enable_next = 1;
+							addr_next = addr_sampler;
+							data_in_next = logic_pack;
+							sampling_logic_ctl_next = SAMPLER_LOGIC_SAVE;
+
+						end
+					end
+				end
+										
 				SAMPLER_LOGIC_SAVE: begin
 					if ( ready ) begin //DRAM ready
+						req2_next = 0;
 						rw_next = 0;
 						enable_next = 0;
 						logic_event_ack_next = 1;
@@ -633,7 +652,6 @@ always @(*) begin
 							sampling_logic_ctl_next = SAMPLER_LOGIC_DONE;
 						end 
 						else begin
-							addr_next = addr_sampler + 23'd1;
 							addr_sampler_next = addr_sampler + 23'd1;
 							sampling_logic_ctl_next = SAMPLER_LOGIC_RUNNING;
 						end
@@ -644,7 +662,7 @@ always @(*) begin
 				end
 						
 			endcase //case sampling_logic_ctl
-			*/
+			
 			
 		end // MAIN_SAMPLING
 	
@@ -864,11 +882,11 @@ always @(*) begin
 				dac_enable_next = 1;
 				replay_curve_ctl_next = REPLAY_CHECK_ARBITER;
 				//led2_mode_next = 2; led2_fast_next = 1;
-				req2_next = 1; //requisita memoria
+				req3_next = 1; //requisita memoria
 			end
 			
 			REPLAY_CHECK_ARBITER: begin
-				if ( ack2 ) begin
+				if ( ack3 ) begin
 					//memoria liberada
 					enable_next = 1;
 					rw_next = 0;
@@ -888,7 +906,7 @@ always @(*) begin
 			REPLAY_LOOKUP: begin
 				if ( ready && out_valid ) begin //DRAM ready
 						enable_next = 0;
-						req2_next = 0; //libera memoria
+						req3_next = 0; //libera memoria
 						dac_value_next = data_out[11:0];
 						replay_curve_ctl_next = REPLAY_UPDATE;
 						dac_enable_next = 1;
@@ -898,7 +916,7 @@ always @(*) begin
 			REPLAY_UPDATE: begin
 				if (!dac_busy) begin
 					replay_curve_ctl_next = REPLAY_CHECK_ARBITER;
-					req2_next = 1; //solicita 
+					req3_next = 1; //solicita 
 					dac_enable_next = 0;
 				end
 			end				
@@ -927,7 +945,35 @@ always @(*) begin
 end
 
 
-	assign debug7 = out_valid;
+	assign debug7 = debug7q;
 	assign debug11 = debug11q;
+	
+	assign debug[0] = dac_scl_pin;
+	assign debug[1] = dac_sda_pin;
+	assign debug[2] = spi0_clkout;  //current
+	assign debug[3] = spi0_miso;
+	assign debug[4] = spi0_cs;
+	assign debug[5] = spi1_clkout;   //voltage
+	assign debug[6] = spi1_miso;
+	assign debug[7] = spi1_cs;
+	assign debug[8] = debug7q;
+	assign debug[9] = debug7q;
+	assign debug[10] = debug7q;
+	assign debug[11] = debug7q;
+	assign debug[12] = debug7q;
+	assign debug[13] = debug7q;
+	assign debug[14] = debug7q;
+	assign debug[15] = debug7q;
+	
+	/*
+	input spi0_miso, //AMOST2 U3 current
+	output spi0_clkout,
+	output spi0_cs,
+
+	output dac_lat_pin, //DAC
+	inout dac_scl_pin, 
+	inout dac_sda_pin, 
+	*/
+
 	
 endmodule

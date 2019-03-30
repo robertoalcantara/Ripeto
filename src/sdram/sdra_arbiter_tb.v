@@ -29,10 +29,12 @@ module sdra_arbiter_tb;
 	reg rst;
 	reg req1;
 	reg req2;
+	reg req3;
 
 	// Outputs
 	wire ack1;
 	wire ack2;
+	wire ack3;
 
 	// Instantiate the Unit Under Test (UUT)
 	sdram_arbiter uut (
@@ -41,7 +43,10 @@ module sdra_arbiter_tb;
 		.req1(req1), 
 		.ack1(ack1), 
 		.req2(req2), 
-		.ack2(ack2)
+		.ack2(ack2),
+		.req3(req3),
+		.ack3(ack3)
+		
 	);
 
 	initial begin
@@ -50,6 +55,7 @@ module sdra_arbiter_tb;
 		rst = 1;
 		req1 = 0;
 		req2 = 0;
+		req3 = 0;
 
 		// Wait 100 ns for global reset to finish
 		#1;
@@ -61,13 +67,26 @@ module sdra_arbiter_tb;
 		#1 clk = !clk;
 		
 	always begin
-		#10 req1=1; req2=0;		
+		#10 req1=1; req2=0; req3=0;
 		#25 req1 = 0;
 		#30 req2 = 1;
 		#35 req2 = 0;
 		#40 req1 = 1; req2=1;
 		#45 req1 = 0; req2=1;
 		#50 req2=0;
+		
+		#55 req1=0; req2=0; req3=1;
+		#60 req1=0; req2=1; req3=1;
+		#65 req1=0; req2=1; req3=0;
+		#70 req1=0; req2=0; req3=0;
+		#75 req1=1; req2=1; req3=1;
+		#80 req1=0;
+		#85 req2=0;
+		#90 req3=0;
+		#105 req3=1; req2=1;
+		#110 req3=1; req2=0;
+		
+		
 	end
 	
 	
