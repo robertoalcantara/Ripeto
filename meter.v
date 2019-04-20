@@ -168,7 +168,7 @@ always @(*) begin
 			end
 			
 			SAMPLES_AVERAGE: begin
-				if ( samples_counter == (2**NUM_SAMPLES_AVERAGE) ) begin
+				if ( samples_counter == (2**NUM_SAMPLES_AVERAGE)-1 ) begin
 					//finalizou
 					state_ctl_next = SPI_IDLE;
 					samples_counter_next = 0;
@@ -185,7 +185,6 @@ always @(*) begin
 					start_mcp_next = 1;
 					state_ctl_next = SPI_RUNNING;
 				end
-			
 			end
 			
 	endcase;

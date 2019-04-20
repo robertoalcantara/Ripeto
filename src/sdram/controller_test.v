@@ -956,8 +956,8 @@ end
 	assign debug[5] = spi1_clkout;   //voltage
 	assign debug[6] = spi1_miso;
 	assign debug[7] = spi1_cs;
-	assign debug[8] = debug7q;
-	assign debug[9] = debug7q;
+	assign debug[8] = amost2_busy;
+	assign debug[9] = (replay_curve_ctl==REPLAY_UPDATE);
 	assign debug[10] = debug7q;
 	assign debug[11] = debug7q;
 	assign debug[12] = debug7q;
