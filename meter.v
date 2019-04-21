@@ -84,7 +84,7 @@ module meter(
 
 
 
-assign busy = (state_ctl != SPI_IDLE);
+assign busy = !( samples_counter == (2**NUM_SAMPLES_AVERAGE)-1 );
 assign data_i = data_out_i;
 assign data_v = data_out_v;
 
